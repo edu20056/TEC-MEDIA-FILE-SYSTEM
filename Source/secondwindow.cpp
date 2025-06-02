@@ -10,7 +10,7 @@ SecondWindow::SecondWindow(QWidget *parent) : QWidget(parent)
     btnReturn = new QPushButton("Volver a Ventana 1", this);
     btnReturn->setGeometry(50, 50, 200, 50);
 
-    btnPrint = new QPushButton("Imprimir mensaje", this);
+    btnPrint = new QPushButton("IMPRIMIR MENSAJE", this);
     btnPrint->setGeometry(50, 120, 200, 50);
 
     btnOpenPDF = new QPushButton("Seleccionar PDF", this);
@@ -109,7 +109,7 @@ void SecondWindow::reconstructPDF()
         return;
     }
 
-    QString saveDir = QDir::currentPath() + "/pdfSAVE";
+    QString saveDir = QDir::currentPath() + "/Node";
     QString finalPDFPath = saveDir + "/" + pdfName + "_RECUPERADO.pdf";
 
     QFile finalPDF(finalPDFPath);
