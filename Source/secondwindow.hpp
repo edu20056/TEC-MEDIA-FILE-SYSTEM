@@ -3,6 +3,8 @@
 
 #include <QWidget>
 #include <QPushButton>
+#include <QLineEdit>
+#include <QFileDialog>
 
 class SecondWindow : public QWidget
 {
@@ -17,10 +19,17 @@ signals:
 private slots:
     void returnToMain();
     void printMessage();
+    void openPDFFile();
+    void reconstructPDF();
 
 private:
+    void splitAndSavePDF(const QString &filePath);
+
     QPushButton *btnReturn;
     QPushButton *btnPrint;
+    QPushButton *btnOpenPDF;
+    QPushButton *btnReconstruct;
+    QLineEdit *lineEditPDFName;
 };
 
 #endif // SECONDWINDOW_HPP
