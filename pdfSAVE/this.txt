@@ -1,1 +1,0 @@
-En esta direccion "pdfSAVE" se intentaran guardar 3 secciones de pdf en binario.

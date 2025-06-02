@@ -74,7 +74,7 @@ void SecondWindow::splitAndSavePDF(const QString &filePath)
     qint64 remainder = totalSize % 3;
 
     QString baseName = QFileInfo(filePath).baseName();
-    QString saveDir = QDir::currentPath() + "/pdfSAVE";
+    QString saveDir = QDir::currentPath() + "/Node";
 
     if (!QDir(saveDir).exists()) {
         QDir().mkdir(saveDir);
