@@ -9,6 +9,11 @@ class httpFormat
 private:
     int Type; // 1: Server->Controller, 2: Controller->Server,  3: Controller->Node, 4: Node->Controller
 
+    // Information of last message that was read
+    int numIndicator; 
+    QString fileName;
+    int contentLength;
+    QByteArray content;
 public:
     httpFormat(int type); 
 
@@ -17,6 +22,10 @@ public:
     void readMessage(const QByteArray& message);
 
     int getType() const;
+    int getIndicator() const;
+    QString getFileName() const;
+    int getContentLenght() const;
+    QByteArray getContent() const;
 };
 
 #endif

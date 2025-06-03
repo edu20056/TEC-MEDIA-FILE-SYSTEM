@@ -19,10 +19,6 @@ QByteArray httpFormat::createFormat(int indicator, const QString& fileName, cons
 void httpFormat::readMessage(const QByteArray& message)
 {
     QList<QByteArray> lines = message.split('\n');
-    int numIndicator = -1;
-    QString fileName;
-    int contentLength = 0;
-    QByteArray content;
 
     int i = 0; // Message position
 
@@ -52,37 +48,30 @@ void httpFormat::readMessage(const QByteArray& message)
     qDebug() << "FileName:" << fileName;
     qDebug() << "Content-Length:" << contentLength;
     qDebug() << "Content:" << content.left(100); //first 100 bytes
-
-
-    // Logic  by type
-    switch (Type)
-    {
-        case 1: // Server->Controller
-            qDebug() << "[Type 1] Server->Controller ";
-            break;
-
-        case 2: // Controller->Server
-            qDebug() << "[Type 2] Controller->Server";
-
-            break;
-
-        case 3: // Controller->Node
-            qDebug() << "[Type 3] Controller->Node";
-
-            break;
-
-        case 4: // Node->Controller
-            qDebug() << "[Type 4] Node->Controller";
-            break;
-
-        default:
-            qDebug() << "Type Error!";
-            break;
-    }
 }
 
 int httpFormat::getType() const
 {
     return Type;
+}
+
+int httpFormat::getIndicator() const
+{
+    return numIndicator;
+}
+
+QString httpFormat::getFileName() const
+{
+    return fileName;
+}
+
+int httpFormat::getContentLenght() const
+{
+    return contentLength;
+}
+
+QByteArray httpFormat::getContent() const
+{
+    return content;
 }
 
