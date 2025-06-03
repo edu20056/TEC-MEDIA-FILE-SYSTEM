@@ -2,24 +2,34 @@
 #define INTERFACE_HPP
 
 #include <QWidget>
+#include <QTcpSocket>
 #include <QPushButton>
 #include <QLineEdit>
 #include <QFileDialog>
 
-class MainWindow : public QWidget {
+class App : public QWidget {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    App(QWidget *parent = nullptr, const QString &host = "localhost", quint16 port = 50000);
+
+    void sendData(const QByteArray &data);
+    bool isConnected() const;
 
 signals:
+    void connectionStatusChanged(bool connected);
 
 private slots:
+    void onConnected();
+    void onDisconnected();
+    void onError(QAbstractSocket::SocketError error);
+    
     void printMessage();
     void openPDFFile();
     void reconstructPDF();
 
 private:
+    QTcpSocket *socket;
     void splitAndSavePDF(const QString &filePath);
 
     QPushButton *btnPrint;

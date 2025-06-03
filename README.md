@@ -18,6 +18,6 @@ sudo apt  qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
 ```
 
 ## How to Run
-Begin by cloning the repository and navigating to the project directory. The compilation process uses a _Makefile_, so simply run the `make` command to build the project. After compilation, the program can be executed with the command `./TEC-MFS`.
+Begin by cloning the repository and navigating to the project directory. The compilation process uses a _Makefile_, so simply run the `make` command in the respective directories to build the project different parts of the program. First compile the `Controller` and the `GUI` -both located in the _Source_ folder-, then procid by executing both programs in their respective order. 
 
 If changes are done to the code or want to remove generated files and binaries, you can clean the directory by running `make clean`.
