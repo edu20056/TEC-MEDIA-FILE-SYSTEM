@@ -6,7 +6,7 @@
 #include <QFile>
 #include <QDir>
 
-App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), socket(new QTcpSocket(this)) {
+App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), messageFormat(1), socket(new QTcpSocket(this)) {
 
     connect(socket, &QTcpSocket::connected, this, &App::onConnected);
     connect(socket, &QTcpSocket::disconnected, this, &App::onDisconnected);
@@ -14,23 +14,31 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
 
     socket->connectToHost(host, port);
 
-    btnPrint = new QPushButton("IMPRIMIR MENSAJE", this);
-    btnPrint->setGeometry(50, 120, 200, 50);
+    // Erase and Upload
+    btnErase = new QPushButton("Borrar PDF", this);
+    btnErase->setGeometry(50, 120, 200, 50);
 
-    btnOpenPDF = new QPushButton("Seleccionar PDF", this);
-    btnOpenPDF->setGeometry(50, 190, 200, 50);
+    btnUpload = new QPushButton("Subir (upload) PDF", this);
+    btnUpload->setGeometry(300, 60, 200, 50);
+
+    // Open PDF
+    btnDownload = new QPushButton("Descargar PDF", this);
+    btnDownload->setGeometry(50, 60, 200, 50);
+
+    // Check PDF
+    btnCheck = new QPushButton("Revisar existencia de PDF", this);
+    btnCheck->setGeometry(50, 190, 200, 50);
 
     lineEditPDFName = new QLineEdit(this);
     lineEditPDFName->setGeometry(50, 260, 200, 30);
     lineEditPDFName->setPlaceholderText("Nombre PDF para reconstruir");
 
-    btnReconstruct = new QPushButton("Reconstruir PDF", this);
-    btnReconstruct->setGeometry(50, 300, 200, 50);
 
-    connect(btnPrint, &QPushButton::clicked, this, &App::printMessage);
-    connect(btnOpenPDF, &QPushButton::clicked, this, &App::openPDFFile);
-    connect(btnReconstruct, &QPushButton::clicked, this, &App::reconstructPDF);
 
+    connect(btnErase, &QPushButton::clicked, this, &App::erasePDF); // Erase
+    connect(btnUpload, &QPushButton::clicked, this, &App::UploadPDF); // Upload pdf
+    connect(btnDownload, &QPushButton::clicked, this, &App::Download); // Download
+    connect(btnCheck, &QPushButton::clicked, this, &App::CheckExistent); // Download
     this->setStyleSheet("background-color: lightcoral;");
 
     QSize screenSize = qApp->primaryScreen()->availableGeometry().size();
@@ -38,6 +46,8 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     int h = screenSize.height() * 0.6;
     this->resize(w, h);
 }
+
+// ======================== CONNECTION FUNCTIONS ============================================
 
 void App::onConnected() {
 
@@ -57,6 +67,13 @@ void App::onError(QAbstractSocket::SocketError error) {
     qDebug() << "Error de socket:" << socket->errorString();
 }
 
+
+bool App::isConnected() const {
+    return socket->state() == QAbstractSocket::ConnectedState;
+}
+
+// =========================== SEND INFORMATION WITH BUTTONS =================================
+
 void App::sendData(const QByteArray &data) {
 
     if (!isConnected()) {
@@ -75,31 +92,28 @@ void App::sendData(const QByteArray &data) {
     }
 }
 
-bool App::isConnected() const {
-    return socket->state() == QAbstractSocket::ConnectedState;
-}
-
-void App::printMessage() {
-
-    qDebug() << "Botón presionado en Ventana 2: ¡Hola desde Qt!";
-}
-
-void App::openPDFFile() {
-
-    QString fileName = QFileDialog::getOpenFileName(this, "Seleccionar archivo PDF", QDir::homePath(), "Archivos PDF (*.pdf)");
-    if (!fileName.isEmpty()) {
-        qDebug() << "Archivo PDF seleccionado:" << fileName;
-        splitAndSavePDF(fileName);
-    } else {
-        qDebug() << "No se seleccionó ningún archivo.";
+void App::erasePDF()
+{
+    QString pdfName = lineEditPDFName->text();
+    if (pdfName.isEmpty()) {
+        qDebug() << "Debes ingresar un nombre de PDF.";
+        return;
     }
+    
+    QString action = "erase";
+    QByteArray _ = "";
+    QByteArray message = messageFormat.createFormat(1,pdfName, action, _);
+    sendData(message);
 }
 
-void App::splitAndSavePDF(const QString &filePath) {
+void App::UploadPDF() {
+    QString fileName = QFileDialog::getOpenFileName(this, "Seleccionar archivo PDF", QDir::homePath(), "Archivos PDF (*.pdf)");
+    if (fileName.isEmpty())
+        return;
 
-    QFile file(filePath);
+    QFile file(fileName);
     if (!file.open(QIODevice::ReadOnly)) {
-        qDebug() << "No se pudo abrir el archivo PDF.";
+        qDebug() << "No se pudo abrir el archivo:" << fileName;
         return;
     }
 
@@ -107,76 +121,44 @@ void App::splitAndSavePDF(const QString &filePath) {
     file.close();
 
     if (data.isEmpty()) {
-        qDebug() << "El archivo PDF está vacío";
+        qDebug() << "El archivo PDF está vacío:"  << fileName;
         return;
     }
 
-    sendData(data);
+    QString action = "upload";
+    QByteArray message = messageFormat.createFormat(1, fileName, action, data);
+    sendData(message);
+}
 
-    qint64 totalSize = data.size();
-    qint64 partSize = totalSize / 3;
-    qint64 remainder = totalSize % 3;
 
-    QString baseName = QFileInfo(filePath).baseName();
-    QString saveDir = QDir::currentPath() + "/Node";
+void App::Download() {
 
-    if (!QDir(saveDir).exists()) {
-        QDir().mkdir(saveDir);
-    }
+    QString fileName = lineEditPDFName->text(); 
 
-    qint64 position = 0;
-    for (int i = 0; i < 3; ++i) {
-        QString partFileName = saveDir + "/" + baseName + "_" + QString::number(i + 1);
-        QFile partFile(partFileName);
-        if (partFile.open(QIODevice::WriteOnly)) {
-            qint64 bytesToWrite = partSize;
-            if (i == 2) bytesToWrite += remainder;
+    if (!fileName.isEmpty()) {
+        qDebug() << "Archivo PDF seleccionado:" << fileName;
 
-            partFile.write(data.constData() + position, bytesToWrite);
-            partFile.close();
-
-            qDebug() << "Parte" << i + 1 << "guardada:" << partFileName << "(" << bytesToWrite << "bytes )";
-
-            position += bytesToWrite;
-        } else {
-            qDebug() << "No se pudo guardar la parte" << i + 1;
-        }
+        QString action = "download";
+        QByteArray _ = "";
+        QByteArray message = messageFormat.createFormat(1,fileName, action, _);
+        sendData(message);
+    } else {
+        qDebug() << "No se seleccionó ningún archivo." << fileName;
     }
 }
 
-void App::reconstructPDF() {
+void App::CheckExistent() {
 
-    QString pdfName = lineEditPDFName->text();
-    if (pdfName.isEmpty()) {
-        qDebug() << "Debes ingresar un nombre de PDF.";
-        return;
+    QString fileName = lineEditPDFName->text(); 
+
+    if (!fileName.isEmpty()) {
+        qDebug() << "Archivo PDF seleccionado:" << fileName;
+
+        QString action = "check";
+        QByteArray _ = "";
+        QByteArray message = messageFormat.createFormat(1,fileName, action, _);
+        sendData(message);
+    } else {
+        qDebug() << "No se seleccionó ningún archivo." << fileName;
     }
-
-    QString saveDir = QDir::currentPath() + "/Node";
-    QString finalPDFPath = saveDir + "/" + pdfName + "_RECUPERADO.pdf";
-
-    QFile finalPDF(finalPDFPath);
-    if (!finalPDF.open(QIODevice::WriteOnly)) {
-        qDebug() << "No se pudo crear el PDF recuperado.";
-        return;
-    }
-
-    for (int i = 0; i < 3; ++i) {
-        QString partFileName = saveDir + "/" + pdfName + "_" + QString::number(i + 1);
-        QFile partFile(partFileName);
-        if (partFile.open(QIODevice::ReadOnly)) {
-            QByteArray partData = partFile.readAll();
-            finalPDF.write(partData);
-            partFile.close();
-
-            qDebug() << "Parte" << i + 1 << "agregada:" << partFileName << "(" << partData.size() << "bytes )";
-        } else {
-            qDebug() << "No se pudo abrir" << partFileName;
-            finalPDF.close();
-            return;
-        }
-    }
-
-    finalPDF.close();
-    qDebug() << "PDF reconstruido en:" << finalPDFPath;
 }

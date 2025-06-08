@@ -6,10 +6,11 @@ httpFormat::httpFormat(int type)
     Type = type;
 }
 
-QByteArray httpFormat::createFormat(int indicator, const QString& fileName, const QByteArray& fileData)
+QByteArray httpFormat::createFormat(int indicator, const QString& fileName, QString& action, const QByteArray& fileData)
 {
     QByteArray message;
     message.append("NumIndicator: " + QByteArray::number(indicator) + "\n");
+    message.append("Action: " + action.toUtf8() + "\n");
     message.append("FileName: " + fileName.toUtf8() + "\n");
     message.append("Content-Length: " + QByteArray::number(fileData.size()) + "\n\n");
     message.append(fileData);
@@ -37,11 +38,12 @@ void httpFormat::readMessage(const QByteArray& message)
         {
             contentLength = line.split(':')[1].trimmed().toInt();
         }
+        else if (line.startsWith("Action:"))
+        {
+            action = line.split(':')[1].trimmed();
+        };
         i++;
     }
-
-    // Empty space is deleted
-    i++;
 
     // Show data
     qDebug() << "NumIndicator:" << numIndicator;
@@ -49,6 +51,15 @@ void httpFormat::readMessage(const QByteArray& message)
     qDebug() << "Content-Length:" << contentLength;
     qDebug() << "Content:" << content.left(100); //first 100 bytes
 }
+
+// ================================== SETTERS ===================================
+
+void httpFormat::SetType(int newType)
+{
+    Type = newType;
+}
+
+// ================================ GETTERS ==================================
 
 int httpFormat::getType() const
 {
@@ -75,3 +86,7 @@ QByteArray httpFormat::getContent() const
     return content;
 }
 
+QString httpFormat::getAction() const 
+{
+    return action;
+}

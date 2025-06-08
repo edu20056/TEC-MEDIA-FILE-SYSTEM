@@ -6,13 +6,13 @@
 #include <QPushButton>
 #include <QLineEdit>
 #include <QFileDialog>
+#include "../HTTP/httpFormat.hpp"
 
 class App : public QWidget {
     Q_OBJECT
 
 public:
     App(QWidget *parent = nullptr, const QString &host = "localhost", quint16 port = 50000);
-
     void sendData(const QByteArray &data);
     bool isConnected() const;
 
@@ -20,21 +20,22 @@ signals:
     void connectionStatusChanged(bool connected);
 
 private slots:
+
+    void erasePDF(); // erase
+    void UploadPDF(); // upload
+    void Download(); // download
+    void CheckExistent(); // check
     void onConnected();
     void onDisconnected();
     void onError(QAbstractSocket::SocketError error);
-    
-    void printMessage();
-    void openPDFFile();
-    void reconstructPDF();
 
 private:
+    httpFormat messageFormat;
     QTcpSocket *socket;
-    void splitAndSavePDF(const QString &filePath);
-
-    QPushButton *btnPrint;
-    QPushButton *btnOpenPDF;
-    QPushButton *btnReconstruct;
+    QPushButton *btnErase;
+    QPushButton *btnCheck; 
+    QPushButton *btnDownload;
+    QPushButton *btnUpload;
     QLineEdit *lineEditPDFName;
 };
 
