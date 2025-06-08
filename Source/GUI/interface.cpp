@@ -33,8 +33,6 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     lineEditPDFName->setGeometry(50, 260, 200, 30);
     lineEditPDFName->setPlaceholderText("Nombre PDF para reconstruir");
 
-
-
     connect(btnErase, &QPushButton::clicked, this, &App::erasePDF); // Erase
     connect(btnUpload, &QPushButton::clicked, this, &App::UploadPDF); // Upload pdf
     connect(btnDownload, &QPushButton::clicked, this, &App::Download); // Download

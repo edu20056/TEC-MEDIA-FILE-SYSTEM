@@ -12,7 +12,6 @@ NodeController::NodeController(QObject *parent, quint16 port) : QTcpServer(paren
     }
 }
 
-
 // ======================= CONNECTION FUNCTIONS =====================================
 
 void NodeController::incomingConnection(qintptr socketDescriptor){

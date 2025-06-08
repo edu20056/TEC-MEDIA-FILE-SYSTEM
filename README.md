@@ -18,6 +18,20 @@ sudo apt  qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
 ```
 
 ## How to Run
-Begin by cloning the repository and navigating to the project directory. The compilation process uses a _Makefile_, so simply run the `make` command in the respective directories to build the project different parts of the program. First compile the `Controller` and the `GUI` -both located in the _Source_ folder-, then procid by executing both programs in their respective order. 
+Begin by cloning the repository and navigating to the project directory. The compilation process uses a _Makefile_, so simply run the `make` in  the _Source_ folder. Then procid to execute `./TECMFS-CTRL` and `./TECMFS-GUI` in their respective order -and in your terminal of choice- to run the application. 
 
 If changes are done to the code or want to remove generated files and binaries, you can clean the directory by running `make clean`.
+
+## Problems to Fix
+### Used Port
+As for right now the `TECMFS-CTRL` generates a server that is not finalized automatically, so the process could go ongoing until it's manually ended.
+
+To verify if the process is ongoing you may use:
+```bash
+lsof -i :<PID>
+```
+
+If there is an existing process initialized via the command `TECMFS-CTRL`, it can be killed with:
+```bash
+kill <PID>
+```

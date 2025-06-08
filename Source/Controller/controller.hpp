@@ -16,7 +16,7 @@ public:
     void reconstructPDF(QString pdfName);
 
 signals:
-    void dataReceived(QTcpSocket *client, const QByteArray &data);
+    void dataReceived(QTcpSocket *client, QByteArray &data);
 
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
