@@ -6,6 +6,11 @@
 #include <QPushButton>
 #include <QLineEdit>
 #include <QFileDialog>
+#include <QApplication>
+#include <QScreen>
+#include <QDebug>
+#include <QFile>
+#include <QDir>
 #include "../HTTP/httpFormat.hpp"
 
 class App : public QWidget {
@@ -13,6 +18,7 @@ class App : public QWidget {
 
 public:
     App(QWidget *parent = nullptr, const QString &host = "localhost", quint16 port = 50000);
+
     void sendData(const QByteArray &data);
     bool isConnected() const;
 

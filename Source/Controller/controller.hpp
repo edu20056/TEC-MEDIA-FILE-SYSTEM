@@ -1,10 +1,14 @@
-#ifndef CONTROLLER_H
-#define CONTROLLER_H
+#ifndef CONTROLLER_HPP
+#define CONTROLLER_HPP
 
+#include <QCoreApplication>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QObject>
 #include <QByteArray>
+#include <QDebug>
+#include <QFile>
+#include <QDir>
 #include "../HTTP/httpFormat.hpp"
 
 class NodeController : public QTcpServer {

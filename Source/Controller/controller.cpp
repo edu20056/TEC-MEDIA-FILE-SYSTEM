@@ -1,7 +1,4 @@
 #include "controller.hpp"
-#include <QDebug>
-#include <QFile>
-#include <QDir>
 
 NodeController::NodeController(QObject *parent, quint16 port) : QTcpServer(parent), messageFormat(3)
 {

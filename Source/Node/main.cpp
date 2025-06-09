@@ -1,11 +1,8 @@
-#include <QCoreApplication>
-#include <QXmlStreamReader>
-#include <QFile>
-#include <QDebug>
-#include <QTcpSocket>
+#include "diskNode.hpp"
 
-// This will be use in the controller to read and set up the disk-nodes
-// Alternately each Node will be compile in a 'main' individually...
+// ======================== XML READER ============================================
+#include <QXmlStreamReader>
+
 void configRead(const QString &filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -41,25 +38,14 @@ void configRead(const QString &filePath) {
     qDebug() << "DiskSize:" << configValues.value("DiskSize");
     qDebug() << "BlockSize:" << configValues.value("BlockSize");
 }
+// =================================================================================
 
-// This will be the main disk-node class...
-class DiskNode {
-    Q_OBJECT
+int main(int argc, char *argv[]){
 
-public:
-    DiskNode(QWidget *parent = nullptr, const QString &host = "localhost", quint16 port = 50000);
+    QCoreApplication core(argc, argv);
+   
+    quint16 port = 50000;
+    DiskNode node(nullptr, "localhost", port);
 
-    void sendData(const QByteArray &data);
-    bool isConnected() const;
-
-signals:
-    void connectionStatusChanged(bool connected);
-
-private slots:
-    void onConnected();
-    void onDisconnected();
-    void onError(QAbstractSocket::SocketError error);
-
-private:
-    QTcpSocket *socket;
-};
+    return core.exec();
+}

@@ -31,9 +31,14 @@ GUI_MOC_CPP = $(GUI_OUT)/moc_interface.cpp
 GUI_MOC_OBJ = $(GUI_OUT)/moc_interface.o
 
 # --------- Node ---------
+NODE_SRC = Node/main.cpp Node/diskNode.cpp $(HTTP_SRC)
+NODE_HDR = Node/diskNode.hpp
+NODE_OBJ = $(addprefix $(NODE_OUT)/, main.o diskNode.o httpFormat.o)
+NODE_MOC_CPP = $(NODE_OUT)/moc_diskNode.cpp
+NODE_MOC_OBJ = $(NODE_OUT)/moc_diskNode.o
 
 # Targets
-TARGETS = TECMFS-CTRL TECMFS-GUI
+TARGETS = TECMFS-CTRL TECMFS-GUI TECMFS-NODE
 
 all: $(TARGETS)
 
@@ -73,6 +78,21 @@ $(GUI_MOC_OBJ): $(GUI_MOC_CPP)
 
 # ------------------ NODES ------------------
 
+TECMFS-NODE: $(NODE_OBJ) $(NODE_MOC_OBJ)
+	$(CXX) $^ -o $@ $(QTLIBS)
+
+$(NODE_OUT)/%.o: Node/%.cpp | $(NODE_OUT)
+	$(CXX) $(CXXFLAGS) $(QTINCS) $(HTTP_INC) -c $< -o $@
+
+$(NODE_OUT)/httpFormat.o: HTTP/httpFormat.cpp | $(NODE_OUT)
+	$(CXX) $(CXXFLAGS) $(QTINCS) -c $< -o $@
+
+$(NODE_MOC_CPP): $(NODE_HDR) | $(NODE_OUT)
+	$(MOC) $< -o $@
+
+$(NODE_MOC_OBJ): $(NODE_MOC_CPP)
+	$(CXX) $(CXXFLAGS) $(QTINCS) -c $< -o $@
+
 # ------------------ DIRECTORIES ------------------
 
 $(CONTROLLER_OUT) $(GUI_OUT) $(NODE_OUT):
@@ -82,6 +102,6 @@ $(CONTROLLER_OUT) $(GUI_OUT) $(NODE_OUT):
 
 clean:
 	rm -rf Build
-	rm -f TECMFS-CTRL TECMFS-GUI
+	rm -f TECMFS-CTRL TECMFS-GUI TECMFS-NODE
 
-.PHONY: all clean TECMFS-CTRL TECMFS-GUI
+.PHONY: all clean TECMFS-CTRL TECMFS-GUI TECMFS-NODE

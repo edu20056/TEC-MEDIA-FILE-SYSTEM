@@ -1,11 +1,5 @@
 #include "interface.hpp"
 
-#include <QApplication>
-#include <QScreen>
-#include <QDebug>
-#include <QFile>
-#include <QDir>
-
 App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), messageFormat(1), socket(new QTcpSocket(this)) {
 
     connect(socket, &QTcpSocket::connected, this, &App::onConnected);
