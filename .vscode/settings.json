@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "qtcpsocket": "cpp"
+        "qtcpsocket": "cpp",
+        "qxmlstreamreader": "cpp"
     }
 }

@@ -1,28 +1,30 @@
 #include "diskNode.hpp"
 
-DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port) : QObject(parent), socket(new QTcpSocket(this)) {
+DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
+    const QString path, quint16 id) 
+    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id) {
 
     connect(socket, &QTcpSocket::connected, this, &DiskNode::onConnected);
     connect(socket, &QTcpSocket::disconnected, this, &DiskNode::onDisconnected);
     connect(socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::errorOccurred),
             this, &DiskNode::onError);
 
-    qDebug() << "Connecting to server at" << host << ":" << port;
     socket->connectToHost(host, port);
+   if(!initPath()){ qWarning() << "!ERROR: Directory couldn't be created..."; }
 }
 
 // ======================== CONNECTION FUNCTIONS ============================================
 
 void DiskNode::onConnected() {
 
-    qDebug() << "Conectado al servidor";
     emit connectionStatusChanged(true);
+    nodeInfo(); 
 }
 
 void DiskNode::onDisconnected() {
 
-    qDebug() << "Desconectado del servidor";
     emit connectionStatusChanged(false);
+    nodeInfo(); 
 }
 
 void DiskNode::onError(QAbstractSocket::SocketError error) {
@@ -35,7 +37,42 @@ bool DiskNode::isConnected() const {
     return socket->state() == QAbstractSocket::ConnectedState;
 }
 
-// =========================== SEND INFORMATION WITH BUTTONS =================================
+// ============================ DEBUGGING  =================================
+
+void DiskNode::nodeInfo() const {
+    QString status = isConnected() ? "Connected" : "Disconnected";
+
+    qDebug().noquote() << "\n================== DISK NODE INFO ==================";
+    qDebug().noquote() << QString("Node ID       : %1").arg(nodeID);
+    qDebug().noquote() << QString("Path          : %1").arg(path);
+    qDebug().noquote() << QString("Status        : %1").arg(status);
+    qDebug().noquote() << "===================================================\n";
+}
+
+// ============================ FILE MANAGEMENT =================================
+
+bool DiskNode::initPath() {
+    QDir baseDir(path);
+
+    if (!baseDir.exists()) {
+        if (!baseDir.mkpath(".")) return false;
+    }
+
+    QString folderName = QString("DiskNode_%1").arg(nodeID);
+    QString fullPath = baseDir.filePath(folderName);
+
+    QDir nodeDir(fullPath);
+
+    if (!nodeDir.exists()) {
+        if (baseDir.mkdir(folderName)) return true;
+        else return false;
+    } else return true;
+
+    path = fullPath;
+    return true;
+}
+
+// =========================== CONNECTION FUNCTIONS  ==============================
 
 void DiskNode::sendData(const QByteArray &data) {
 

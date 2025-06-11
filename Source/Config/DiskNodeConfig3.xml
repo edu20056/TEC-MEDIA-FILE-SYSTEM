@@ -1,7 +1,7 @@
 <DiskNodeConfig>
-    <NodeID>...</NodeID>
-    <ControllerIP>...</ControllerIP>
-    <ControllerPort>...</ControllerPort>
+    <NodeID>3</NodeID>
+    <ControllerIP>localhost</ControllerIP>
+    <ControllerPort>50000</ControllerPort>
     <StoragePath>...</StoragePath>
     <DiskSize>...</DiskSize>
     <BlockSize>...</BlockSize>
