@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QDir>
 #include "../HTTP/httpFormat.hpp"
+#include "../Config/xmlReader.hpp"
 
 class NodeController : public QTcpServer {
     Q_OBJECT

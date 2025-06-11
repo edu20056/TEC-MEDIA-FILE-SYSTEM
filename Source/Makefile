@@ -16,10 +16,14 @@ NODE_OUT = Build/Node
 HTTP_SRC = HTTP/httpFormat.cpp
 HTTP_INC = -IHTTP
 
+# xmlReader source
+XML_SRC = Config/xmlReader.cpp
+XML_INC = -IConfig
+
 # --------- Controller ---------
-CONTROLLER_SRC = Controller/main.cpp Controller/controller.cpp $(HTTP_SRC)
+CONTROLLER_SRC = Controller/main.cpp Controller/controller.cpp $(HTTP_SRC) $(XML_SRC)
 CONTROLLER_HDR = Controller/controller.hpp
-CONTROLLER_OBJ = $(addprefix $(CONTROLLER_OUT)/, main.o controller.o httpFormat.o)
+CONTROLLER_OBJ = $(addprefix $(CONTROLLER_OUT)/, main.o controller.o httpFormat.o xmlReader.o)
 CONTROLLER_MOC_CPP = $(CONTROLLER_OUT)/moc_controller.cpp
 CONTROLLER_MOC_OBJ = $(CONTROLLER_OUT)/moc_controller.o
 
@@ -31,9 +35,9 @@ GUI_MOC_CPP = $(GUI_OUT)/moc_interface.cpp
 GUI_MOC_OBJ = $(GUI_OUT)/moc_interface.o
 
 # --------- Node ---------
-NODE_SRC = Node/main.cpp Node/diskNode.cpp $(HTTP_SRC)
+NODE_SRC = Node/main.cpp Node/diskNode.cpp $(HTTP_SRC) $(XML_SRC)
 NODE_HDR = Node/diskNode.hpp
-NODE_OBJ = $(addprefix $(NODE_OUT)/, main.o diskNode.o httpFormat.o)
+NODE_OBJ = $(addprefix $(NODE_OUT)/, main.o diskNode.o httpFormat.o xmlReader.o)
 NODE_MOC_CPP = $(NODE_OUT)/moc_diskNode.cpp
 NODE_MOC_OBJ = $(NODE_OUT)/moc_diskNode.o
 
@@ -48,10 +52,13 @@ TECMFS-CTRL: $(CONTROLLER_OBJ) $(CONTROLLER_MOC_OBJ)
 	$(CXX) $^ -o $@ $(QTLIBS)
 
 $(CONTROLLER_OUT)/%.o: Controller/%.cpp | $(CONTROLLER_OUT)
-	$(CXX) $(CXXFLAGS) $(QTINCS) $(HTTP_INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(QTINCS) $(HTTP_INC) $(XML_INC) -c $< -o $@
 
 $(CONTROLLER_OUT)/httpFormat.o: HTTP/httpFormat.cpp | $(CONTROLLER_OUT)
 	$(CXX) $(CXXFLAGS) $(QTINCS) -c $< -o $@
+
+$(CONTROLLER_OUT)/xmlReader.o: Config/xmlReader.cpp | $(CONTROLLER_OUT)
+	$(CXX) $(CXXFLAGS) $(QTINCS) $(XML_INC) -c $< -o $@
 
 $(CONTROLLER_MOC_CPP): $(CONTROLLER_HDR) | $(CONTROLLER_OUT)
 	$(MOC) $< -o $@
@@ -82,10 +89,13 @@ TECMFS-NODE: $(NODE_OBJ) $(NODE_MOC_OBJ)
 	$(CXX) $^ -o $@ $(QTLIBS)
 
 $(NODE_OUT)/%.o: Node/%.cpp | $(NODE_OUT)
-	$(CXX) $(CXXFLAGS) $(QTINCS) $(HTTP_INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(QTINCS) $(HTTP_INC) $(XML_INC) -c $< -o $@
 
 $(NODE_OUT)/httpFormat.o: HTTP/httpFormat.cpp | $(NODE_OUT)
 	$(CXX) $(CXXFLAGS) $(QTINCS) -c $< -o $@
+
+$(NODE_OUT)/xmlReader.o: Config/xmlReader.cpp | $(NODE_OUT)
+	$(CXX) $(CXXFLAGS) $(QTINCS) $(XML_INC) -c $< -o $@
 
 $(NODE_MOC_CPP): $(NODE_HDR) | $(NODE_OUT)
 	$(MOC) $< -o $@

@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QTcpSocket>
 #include "../HTTP/httpFormat.hpp"
+#include "../Config/xmlReader.hpp"
 
 class DiskNode : public QObject {
     Q_OBJECT
