@@ -36,22 +36,25 @@ void NodeController::onReadyRead(){
     emit dataReceived(client, data);
     qDebug() << "Received from client:" << data << "Indicator message:" << messageFormat.getIndicator();
     if (messageFormat.getIndicator() == 1) { // Incoming message from GUI
-        if (messageFormat.getAction() == "upload")
+        if (messageFormat.getAction() == ActionMessage::Upload)
         {
             qDebug() << "Se cargo pdf :D";
+            ActionMessage action = messageFormat.getAction();
+            QByteArray newMessage = messageFormat.createFormat(3,messageFormat.getFileName(),action, messageFormat.getContent());
+            sendData(client, newMessage);
             // splitAndSave
         }
-        else if (messageFormat.getAction() == "erase")
+        else if (messageFormat.getAction() == ActionMessage::Erase)
         {
             qDebug() << "Se borro un pdf";
             // for nodo in nodos, enviar mensaje de borrar con messageFormat.getFileName()
         }
-        else if (messageFormat.getAction() == "check")
+        else if (messageFormat.getAction() == ActionMessage::Check)
         {
             qDebug() << "Se hizo check de existencia de pdf";
             // for pdf in pdfList, revisar si existe alguno subido con messageFormat.getFileName()
         }
-        else if (messageFormat.getAction() == "download") 
+        else if (messageFormat.getAction() == ActionMessage::Download) 
         {
             qDebug() << "Se descarga un pdf";
             // for nodo in nodos, relizar reconstruccion de pdf, TODO: ver donde se debe guardar

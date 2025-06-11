@@ -92,7 +92,7 @@ void App::erasePDF()
         return;
     }
     
-    QString action = "erase";
+    ActionMessage action = ActionMessage::Erase;   
     QByteArray _ = "";
     QByteArray message = messageFormat.createFormat(1,pdfName, action, _);
     sendData(message);
@@ -117,7 +117,7 @@ void App::UploadPDF() {
         return;
     }
 
-    QString action = "upload";
+    ActionMessage action = ActionMessage::Upload; 
     QByteArray message = messageFormat.createFormat(1, fileName, action, data);
     sendData(message);
 }
@@ -130,7 +130,7 @@ void App::Download() {
     if (!fileName.isEmpty()) {
         qDebug() << "Archivo PDF seleccionado:" << fileName;
 
-        QString action = "download";
+        ActionMessage action = ActionMessage::Download; 
         QByteArray _ = "";
         QByteArray message = messageFormat.createFormat(1,fileName, action, _);
         sendData(message);
@@ -146,7 +146,7 @@ void App::CheckExistent() {
     if (!fileName.isEmpty()) {
         qDebug() << "Archivo PDF seleccionado:" << fileName;
 
-        QString action = "check";
+        ActionMessage action = ActionMessage::Check; 
         QByteArray _ = "";
         QByteArray message = messageFormat.createFormat(1,fileName, action, _);
         sendData(message);

@@ -4,6 +4,15 @@
 #include <QString>
 #include <QByteArray>
 
+enum class ActionMessage {
+    Erase,
+    Check,
+    Download,
+    Upload,
+    Error,
+    MemoryStatus
+
+};
 class httpFormat
 {
 private:
@@ -12,14 +21,15 @@ private:
     // Information of last message that was read
     int numIndicator; 
     QString fileName;
-    QString action;
+    ActionMessage action;
     int contentLength;
     QByteArray content;
+
 public:
     httpFormat(int type); 
 
     // indicator 1:Search, 2:Delete, 3:Upload
-    QByteArray createFormat(int indicator, const QString& fileName, QString& action,const QByteArray& fileData);
+    QByteArray createFormat(int indicator, const QString& fileName, ActionMessage& action,const QByteArray& fileData);
     void readMessage(const QByteArray& message);
 
     void SetType(int newType);
@@ -29,7 +39,7 @@ public:
     QString getFileName() const;
     int getContentLenght() const;
     QByteArray getContent() const;
-    QString getAction() const;
+    ActionMessage getAction() const;
 };
 
 #endif

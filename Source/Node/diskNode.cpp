@@ -1,6 +1,6 @@
 #include "diskNode.hpp"
 
-DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port) : QObject(parent), socket(new QTcpSocket(this)) {
+DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port) : QObject(parent), socket(new QTcpSocket(this)), messageFormat(3) {
 
     connect(socket, &QTcpSocket::connected, this, &DiskNode::onConnected);
     connect(socket, &QTcpSocket::disconnected, this, &DiskNode::onDisconnected);
@@ -35,7 +35,18 @@ bool DiskNode::isConnected() const {
     return socket->state() == QAbstractSocket::ConnectedState;
 }
 
-// =========================== SEND INFORMATION WITH BUTTONS =================================
+
+void DiskNode::onReadyRead(){
+
+    QTcpSocket *client = qobject_cast<QTcpSocket*>(sender());
+    if (!client) return;
+    
+    QByteArray data = client->readAll();
+    messageFormat.readMessage(data);
+    qDebug() << "Received from client:" << data << "Indicator message:" << messageFormat.getIndicator();
+}
+
+// =========================== SEND INFORMATION ==============================================
 
 void DiskNode::sendData(const QByteArray &data) {
 

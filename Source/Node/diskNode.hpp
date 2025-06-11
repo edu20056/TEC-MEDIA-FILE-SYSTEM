@@ -21,12 +21,14 @@ signals:
     void connectionStatusChanged(bool connected);
 
 private slots:
+    void onReadyRead();
     void onConnected();
     void onDisconnected();
     void onError(QAbstractSocket::SocketError error);
 
 private:
     QTcpSocket *socket;
+    httpFormat messageFormat;
 };
 
 #endif
