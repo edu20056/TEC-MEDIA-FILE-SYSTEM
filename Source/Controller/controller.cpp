@@ -1,7 +1,9 @@
 #include "controller.hpp"
 
-NodeController::NodeController(QObject *parent, quint16 port) : QTcpServer(parent), messageFormat(3)
+NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : QTcpServer(parent), messageFormat(3)
 {
+    blockSize = block;
+    qDebug() << "Inicialized as: " << port << ", Blocksize" << blockSize;
     if (!listen(QHostAddress::Any, port)) {
         qCritical() << "Server could not start:" << errorString();
     } else {
@@ -34,9 +36,6 @@ void NodeController::onReadyRead(){
     emit dataReceived(client, data);
     qDebug() << "Received from client:" << data << "Indicator message:" << messageFormat.getIndicator();
     if (messageFormat.getIndicator() == 1) { // Incoming message from GUI
-        qDebug() << "Indicator 1 :DDDDDD";
-        qDebug() << messageFormat.getAction();
-        qDebug() << "Indicator 1 :DDDDDD";
         if (messageFormat.getAction() == "upload")
         {
             qDebug() << "Se cargo pdf :D";

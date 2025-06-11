@@ -15,7 +15,8 @@
 class NodeController : public QTcpServer {
     Q_OBJECT
 public:
-    explicit NodeController(QObject *parent = nullptr, quint16 port = 50000);
+    int blockSize;
+    explicit NodeController(QObject *parent = nullptr, quint16 port = 50000, quint64 blockSize = 1024);
     void sendData(QTcpSocket *client, const QByteArray &data);
     void splitAndSavePDF();
     void reconstructPDF(QString pdfName);
