@@ -10,36 +10,52 @@ enum class ActionMessage {
     Download,
     Upload,
     Error,
-    MemoryStatus
+    MemoryStatus,
+    Null
 
 };
+
+enum class MessageIndicator {
+    ServerToController,
+    ControllerToServer,
+    ControllerToNode,
+    NodeToController,
+    Null
+};
+
 class httpFormat
 {
 private:
-    int Type; // 1: Server->Controller, 2: Controller->Server,  3: Controller->Node, 4: Node->Controller
-
     // Information of last message that was read
-    int numIndicator; 
+    MessageIndicator indicator; 
     QString fileName;
     ActionMessage action;
     int contentLength;
     QByteArray content;
 
 public:
-    httpFormat(int type); 
+    httpFormat(); 
 
     // indicator 1:Search, 2:Delete, 3:Upload
-    QByteArray createFormat(int indicator, const QString& fileName, ActionMessage& action,const QByteArray& fileData);
+    QByteArray createFormat(MessageIndicator indicator, const QString& fileName, ActionMessage& action,const QByteArray& fileData);
     void readMessage(const QByteArray& message);
 
     void SetType(int newType);
 
     int getType() const; // <------
-    int getIndicator() const; // <------
+    MessageIndicator getIndicator() const; // <------
     QString getFileName() const;
     int getContentLenght() const;
     QByteArray getContent() const;
     ActionMessage getAction() const;
+
+    // ActionMessage <-----> String
+    QString actionMessageToString(ActionMessage action);
+    ActionMessage stringToActionMessage(const QString& str);
+
+    // MessageIndicator <-----> String
+    QString messageIndicatorToString(MessageIndicator action);
+    MessageIndicator stringToMessageIndicator(const QString& str);
 };
 
 #endif

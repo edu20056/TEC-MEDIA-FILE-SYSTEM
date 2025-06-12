@@ -1,13 +1,13 @@
 #include "httpFormat.hpp"
 #include <QDebug>
 
-httpFormat::httpFormat(int type)
+httpFormat::httpFormat()
 {
-    Type = type;
+    return;
 }
 
 // =========================== ActionMessage <-----> String =====================================
-QString actionMessageToString(ActionMessage action) {
+QString httpFormat::actionMessageToString(ActionMessage action) {
     switch (action) {
         case ActionMessage::Erase:        return "Erase";
         case ActionMessage::Check:        return "Check";
@@ -19,7 +19,7 @@ QString actionMessageToString(ActionMessage action) {
     }
 }
 
-ActionMessage stringToActionMessage(const QString& str) {
+ActionMessage httpFormat::stringToActionMessage(const QString& str) {
     if (str == "Erase")        return ActionMessage::Erase;
     if (str == "Check")        return ActionMessage::Check;
     if (str == "Download")     return ActionMessage::Download;
@@ -29,12 +29,32 @@ ActionMessage stringToActionMessage(const QString& str) {
     return ActionMessage::Error; // valor por defecto seguro
 }
 
+// =========================== MessageIndicator <-----> String =====================================
+QString httpFormat::messageIndicatorToString(MessageIndicator action) {
+    switch (action) {
+        case MessageIndicator::ServerToController:        return "ServerToController";
+        case MessageIndicator::ControllerToNode:        return "ControllerToNode";
+        case MessageIndicator::ControllerToServer:     return "ControllerToServer";
+        case MessageIndicator::NodeToController:       return "NodeToController";
+        default:                          return "Null";
+    }
+}
+
+MessageIndicator httpFormat::stringToMessageIndicator(const QString& str) {
+    if (str == "ServerToController")        return MessageIndicator::ServerToController;
+    if (str == "ControllerToNode")        return MessageIndicator::ControllerToNode;
+    if (str == "ControllerToServer")     return MessageIndicator::ControllerToServer;
+    if (str == "NodeToController")       return MessageIndicator::NodeToController;
+    return MessageIndicator::Null; // valor por defecto seguro
+}
+
+
 
 // =========================== CONSTRUCTOR ===========================
-QByteArray httpFormat::createFormat(int indicator, const QString& fileName, ActionMessage& action, const QByteArray& fileData)
+QByteArray httpFormat::createFormat(MessageIndicator indicator, const QString& fileName, ActionMessage& action, const QByteArray& fileData)
 {
     QByteArray message;
-    message.append("NumIndicator: " + QByteArray::number(indicator) + "\n");
+    message.append("Indicator: " + messageIndicatorToString(indicator).toUtf8() + "\n");
     message.append("Action: " + actionMessageToString(action).toUtf8() + "\n");
     message.append("FileName: " + fileName.toUtf8() + "\n");
     message.append("Content-Length: " + QByteArray::number(fileData.size()) + "\n\n");
@@ -44,7 +64,7 @@ QByteArray httpFormat::createFormat(int indicator, const QString& fileName, Acti
 
 void httpFormat::readMessage(const QByteArray& message) {
     // Reseat previous values
-    numIndicator = 0;
+    indicator = MessageIndicator::Null;
     fileName.clear();
     contentLength = 0;
     content.clear(); 
@@ -59,8 +79,8 @@ void httpFormat::readMessage(const QByteArray& message) {
     // Parse headers
     QList<QByteArray> headers = message.left(headerEnd).split('\n');
     for (const QByteArray &line : headers) {
-        if (line.startsWith("NumIndicator:")) {
-            numIndicator = line.split(':')[1].trimmed().toInt();
+        if (line.startsWith("Indicator:")) {
+            indicator = stringToMessageIndicator(QString::fromUtf8(line.split(':')[1].trimmed()));
         } else if (line.startsWith("FileName:")) {
             fileName = line.split(':')[1].trimmed();
         } else if (line.startsWith("Content-Length:")) {
@@ -79,23 +99,12 @@ void httpFormat::readMessage(const QByteArray& message) {
     }
 }
 
-// ================================== SETTERS ===================================
-
-void httpFormat::SetType(int newType)
-{
-    Type = newType;
-}
-
 // ================================ GETTERS ==================================
 
-int httpFormat::getType() const
-{
-    return Type;
-}
 
-int httpFormat::getIndicator() const
+MessageIndicator httpFormat::getIndicator() const
 {
-    return numIndicator;
+    return indicator;
 }
 
 QString httpFormat::getFileName() const

@@ -1,6 +1,6 @@
 #include "controller.hpp"
 
-NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : QTcpServer(parent), messageFormat(3)
+NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : QTcpServer(parent)
 {
     blockSize = block;
     qDebug() << "Inicialized as: " << port << ", Blocksize" << blockSize;
@@ -49,16 +49,17 @@ void NodeController::onReadyRead() {
             // Message procesor
             messageFormat.readMessage(completeMessage);
             emit dataReceived(client, completeMessage);
-            qDebug() << "Received from client: "<< messageFormat.getFileName() << "Indicator message:" << messageFormat.getIndicator();
+            MessageIndicator indicator = messageFormat.getIndicator();
+            qDebug() << "Received from client: "<< messageFormat.getFileName() << "Indicator message:" << messageFormat.messageIndicatorToString(indicator);
             qDebug() << "Primeros 200 bytes (hex):" << messageFormat.getContent().left(200).toHex(' ');  // ESpace between bytes
             
             // Lecture for nodes logic begins here
-            if (messageFormat.getIndicator() == 1) { // Incoming message from GUI
+            if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
                 if (messageFormat.getAction() == ActionMessage::Upload)
                 {
                     qDebug() << "Se cargo pdf :D";
                     ActionMessage action = messageFormat.getAction();
-                    QByteArray newMessage = messageFormat.createFormat(3,messageFormat.getFileName(),action, messageFormat.getContent());
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
                     for (QTcpSocket* nodo : clients) {
                         if (nodo != client) { // avoid to resend message 
                             sendData(nodo, newMessage);
@@ -88,7 +89,7 @@ void NodeController::onReadyRead() {
                 }
                 
             }
-            else if (messageFormat.getIndicator() == 4) // Incoming from node
+            else if (messageFormat.getIndicator() == MessageIndicator::NodeToController) // Incoming from node
             {
                 qDebug() << "Mensaje de nodo";
             }
