@@ -2,6 +2,7 @@
 
 DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port) : QObject(parent), socket(new QTcpSocket(this)), messageFormat(3) {
 
+    connect(socket, &QTcpSocket::readyRead, this, &DiskNode::onReadyRead);
     connect(socket, &QTcpSocket::connected, this, &DiskNode::onConnected);
     connect(socket, &QTcpSocket::disconnected, this, &DiskNode::onDisconnected);
     connect(socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::errorOccurred),
@@ -38,12 +39,12 @@ bool DiskNode::isConnected() const {
 
 void DiskNode::onReadyRead(){
 
-    QTcpSocket *client = qobject_cast<QTcpSocket*>(sender());
-    if (!client) return;
-    
-    QByteArray data = client->readAll();
+    QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
+    if (!socket) return;
+    qDebug() << "MENSAJE PRUEBA (esto es en diskNode onReadyRead)";
+    QByteArray data = socket->readAll();
     messageFormat.readMessage(data);
-    qDebug() << "Received from client:" << data << "Indicator message:" << messageFormat.getIndicator();
+    qDebug() << "Received from client, Indicator message:" << messageFormat.getIndicator();
 }
 
 // =========================== SEND INFORMATION ==============================================

@@ -34,14 +34,19 @@ void NodeController::onReadyRead(){
     QByteArray data = client->readAll();
     messageFormat.readMessage(data);
     emit dataReceived(client, data);
-    qDebug() << "Received from client:" << data << "Indicator message:" << messageFormat.getIndicator();
+    qDebug() << "Received from client, Indicator message:" << messageFormat.getIndicator();
     if (messageFormat.getIndicator() == 1) { // Incoming message from GUI
         if (messageFormat.getAction() == ActionMessage::Upload)
         {
             qDebug() << "Se cargo pdf :D";
             ActionMessage action = messageFormat.getAction();
             QByteArray newMessage = messageFormat.createFormat(3,messageFormat.getFileName(),action, messageFormat.getContent());
-            sendData(client, newMessage);
+            for (QTcpSocket* nodo : clients) {
+                if (nodo != client) { // evitar reenviar a quien hizo el upload
+                    sendData(nodo, newMessage);
+                    qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                }
+            }            
             // splitAndSave
         }
         else if (messageFormat.getAction() == ActionMessage::Erase)
@@ -85,9 +90,14 @@ void NodeController::onDisconnected(){
 
 void NodeController::sendData(QTcpSocket *client, const QByteArray &data){
 
-    if (client && client->state() == QAbstractSocket::ConnectedState) {
-        client->write(data);
-        client->waitForBytesWritten(1000);
+    qint64 bytesWritten = client->write(data);
+    if (bytesWritten == -1) {
+        qDebug() << "Error al enviar datos:" << client->errorString();
+        return;
+    }
+    
+    if (!client->waitForBytesWritten(1000)) {
+        qDebug() << "Timeout al enviar datos";
     }
 }
 

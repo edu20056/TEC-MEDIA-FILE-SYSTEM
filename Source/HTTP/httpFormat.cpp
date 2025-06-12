@@ -69,12 +69,6 @@ void httpFormat::readMessage(const QByteArray& message)
         };
         i++;
     }
-
-    // Show data
-    qDebug() << "NumIndicator:" << numIndicator;
-    qDebug() << "FileName:" << fileName;
-    qDebug() << "Content-Length:" << contentLength;
-    qDebug() << "Content:" << content.left(100); //first 100 bytes
 }
 
 // ================================== SETTERS ===================================
