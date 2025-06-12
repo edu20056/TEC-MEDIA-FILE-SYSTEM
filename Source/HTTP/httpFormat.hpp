@@ -34,8 +34,8 @@ public:
 
     void SetType(int newType);
 
-    int getType() const;
-    int getIndicator() const;
+    int getType() const; // <------
+    int getIndicator() const; // <------
     QString getFileName() const;
     int getContentLenght() const;
     QByteArray getContent() const;

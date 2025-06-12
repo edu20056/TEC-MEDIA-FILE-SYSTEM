@@ -51,6 +51,16 @@ void DiskNode::nodeInfo() const {
     qDebug().noquote() << "===================================================\n";
 }
 
+void DiskNode::inputNotification(httpFormat const &messageData, QString fileName) const {
+    QString msgStatus = messageData.getContent().isEmpty() ? "Empty File" : "Not Empty File";
+
+    qDebug().noquote() << "\n=================== CTRL INPUT ===================";
+    qDebug().noquote() << QString("File Name      : %1").arg(fileName);
+    qDebug().noquote() << QString("File Stats     : %1").arg(msgStatus);
+    qDebug().noquote() << QString("Size           : %1").arg(messageData.getContent().size());
+    qDebug().noquote() << "===================================================\n";
+}
+
 // ============================ FILE MANAGEMENT =================================
 
 bool DiskNode::initPath() {
@@ -69,20 +79,33 @@ bool DiskNode::initPath() {
     }
 
     path = fullPath;
-    qDebug().noquote() << QString("Path          : %1").arg(path);
-
     return true;
+}
+
+bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
+
+    QDir dir(path);
+    if (!dir.exists()) return false;
+
+    QString filePath = dir.absoluteFilePath(fileName);
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+
+    qint64 bytesWritten = file.write(data);
+    if (bytesWritten == -1) return false;
+    file.close();
+
+    return true; 
 }
 
 // =========================== CONNECTION FUNCTIONS  ==============================  
 
 void DiskNode::onReadyRead() {
+
     QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
     if (!socket) return;
 
-    // Acumulate data on buffer.
     buffers[socket] += socket->readAll();
-
 
     while (buffers[socket].size() >= static_cast<qsizetype>(sizeof(quint32))) {
         QDataStream stream(buffers[socket]);
@@ -90,22 +113,20 @@ void DiskNode::onReadyRead() {
         stream >> messageLength; 
 
         if (buffers[socket].size() - sizeof(quint32) >= messageLength) {
-            // Extraer el mensaje completo (sin el prefijo)
             QByteArray completeMessage = buffers[socket].mid(sizeof(quint32), messageLength);
             buffers[socket].remove(0, sizeof(quint32) + messageLength);
 
             messageFormat.readMessage(completeMessage);
-            qDebug() << "[DiskNode] Mensaje recibido - Indicador:" << messageFormat.getIndicator();
-            qDebug() << "Nombre del archivo:" << messageFormat.getFileName();
-            qDebug() << "Tamaño del contenido:" << messageFormat.getContent().size();
+            QFileInfo fileInfo(messageFormat.getFileName());
 
-            // Opcional: Imprimir primeros bytes del contenido (hex)
-            if (!messageFormat.getContent().isEmpty()) {
-                qDebug() << "Primeros 50 bytes (hex):" << messageFormat.getContent().left(50).toHex(' ');
+            inputNotification(messageFormat, fileInfo.fileName());
+
+            if (messageFormat.getAction() == ActionMessage::Upload){
+                bool success = storeFile(messageFormat.getContent(), fileInfo.completeBaseName());
+                qDebug().noquote() << QString("[Upload] Success       : %1").arg(success);
             }
-        } else {
-            break;  
-        }
+
+        } else break;
     }
 }
 

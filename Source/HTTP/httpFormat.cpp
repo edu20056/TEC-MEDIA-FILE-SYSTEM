@@ -30,7 +30,7 @@ ActionMessage stringToActionMessage(const QString& str) {
 }
 
 
-// =========================== CONSTRUCTOR ==========================================================================
+// =========================== CONSTRUCTOR ===========================
 QByteArray httpFormat::createFormat(int indicator, const QString& fileName, ActionMessage& action, const QByteArray& fileData)
 {
     QByteArray message;

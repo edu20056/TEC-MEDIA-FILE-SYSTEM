@@ -9,6 +9,7 @@
 #include <QDebug>
 #include <QFile>
 #include <QDir>
+#include <QDataStream>
 #include "../HTTP/httpFormat.hpp"
 #include "../Config/xmlReader.hpp"
 
@@ -34,7 +35,7 @@ private slots:
 private:    
     QList<QTcpSocket*> clients;
     httpFormat messageFormat;
-    QHash<QTcpSocket*, QByteArray> buffers; // needed for sending messages correctly
+    QHash<QTcpSocket*, QByteArray> buffers;
 };
 
 #endif

@@ -1,5 +1,5 @@
 #include "controller.hpp"
-#include <QDataStream>
+
 NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : QTcpServer(parent), messageFormat(3)
 {
     blockSize = block;

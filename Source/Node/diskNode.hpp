@@ -33,7 +33,10 @@ private slots:
     void onError(QAbstractSocket::SocketError error);
 
     void nodeInfo() const;
+    void inputNotification(httpFormat const &messageData, QString fileName) const;
+
     bool initPath();
+    bool storeFile(const QByteArray& data, QString fileName);
 
 private:
     QTcpSocket *socket;
