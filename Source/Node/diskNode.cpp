@@ -11,7 +11,7 @@ DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
             this, &DiskNode::onError);
 
     socket->connectToHost(host, port);
-   if(!initPath()){ qWarning() << "!ERROR: Directory couldn't be created..."; }
+    if(!initPath()){ qWarning() << "!ERROR: Directory couldn't be created..."; }
 }
 
 // ======================== CONNECTION FUNCTIONS ============================================
@@ -55,21 +55,21 @@ void DiskNode::nodeInfo() const {
 bool DiskNode::initPath() {
     QDir baseDir(path);
 
-    if (!baseDir.exists()) {
-        if (!baseDir.mkpath(".")) return false;
+    if (!baseDir.exists() && !baseDir.mkpath(".")) {
+        return false;
     }
 
     QString folderName = QString("DiskNode_%1").arg(nodeID);
     QString fullPath = baseDir.filePath(folderName);
-
     QDir nodeDir(fullPath);
 
-    if (!nodeDir.exists()) {
-        if (baseDir.mkdir(folderName)) return true;
-        else return false;
-    } else return true;
+    if (!nodeDir.exists() && !baseDir.mkdir(folderName)) {
+        return false;
+    }
 
     path = fullPath;
+    qDebug().noquote() << QString("Path          : %1").arg(path);
+
     return true;
 }
 

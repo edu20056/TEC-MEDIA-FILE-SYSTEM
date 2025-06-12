@@ -2,7 +2,7 @@
     <NodeID>1</NodeID>
     <ControllerIP>localhost</ControllerIP>
     <ControllerPort>50000</ControllerPort>
-    <StoragePath>...</StoragePath>
+    <StoragePath>Node/Core</StoragePath>
     <DiskSize>...</DiskSize>
     <BlockSize>...</BlockSize>
 </DiskNodeConfig>
