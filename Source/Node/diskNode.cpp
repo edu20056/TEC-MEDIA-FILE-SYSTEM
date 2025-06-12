@@ -95,7 +95,26 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     if (bytesWritten == -1) return false;
     file.close();
 
-    return true; 
+    return reconstructPdf(data, fileName); 
+}
+
+bool DiskNode::reconstructPdf(const QByteArray& pdfData, const QString& fileName) {
+    QDir dir(path);
+    if (!dir.exists()) return false;
+
+    QString safeFileName = fileName;
+    if (!safeFileName.endsWith(".pdf", Qt::CaseInsensitive)) {
+        safeFileName += ".pdf";
+    }
+
+    QString filePath = dir.absoluteFilePath(safeFileName);
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly)) return false;
+
+    qint64 bytesWritten = file.write(pdfData);
+    file.close();
+
+    return bytesWritten == pdfData.size();
 }
 
 // =========================== CONNECTION FUNCTIONS  ==============================  

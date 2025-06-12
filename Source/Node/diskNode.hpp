@@ -37,6 +37,7 @@ private slots:
 
     bool initPath();
     bool storeFile(const QByteArray& data, QString fileName);
+    bool reconstructPdf(const QByteArray& pdfData, const QString& fileName);
 
 private:
     QTcpSocket *socket;
