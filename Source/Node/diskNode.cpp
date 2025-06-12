@@ -74,10 +74,7 @@ bool DiskNode::initPath() {
     return true;
 }
 
-// =========================== CONNECTION FUNCTIONS  ==============================
-
-// En la clase DiskNode (declaración como miembro privado)
-QHash<QTcpSocket*, QByteArray> buffers;  // Buffer por cliente
+// =========================== CONNECTION FUNCTIONS  ==============================  
 
 void DiskNode::onReadyRead() {
     QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());

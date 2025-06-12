@@ -40,6 +40,7 @@ private:
     QString path;
     quint16 nodeID;
     httpFormat messageFormat;
+    QHash<QTcpSocket*, QByteArray> buffers;
 };
 
 #endif
