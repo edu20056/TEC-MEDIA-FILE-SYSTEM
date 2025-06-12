@@ -3,7 +3,7 @@
 
 DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
     const QString path, quint16 id) 
-    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id), messageFormat(3) {
+    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id) {
 
     connect(socket, &QTcpSocket::readyRead, this, &DiskNode::onReadyRead);
     connect(socket, &QTcpSocket::connected, this, &DiskNode::onConnected);

@@ -1,6 +1,6 @@
 #include "interface.hpp"
 
-App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), messageFormat(1), socket(new QTcpSocket(this)) {
+App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), socket(new QTcpSocket(this)) {
 
     connect(socket, &QTcpSocket::connected, this, &App::onConnected);
     connect(socket, &QTcpSocket::disconnected, this, &App::onDisconnected);
@@ -98,7 +98,7 @@ void App::erasePDF()
     
     ActionMessage action = ActionMessage::Erase;   
     QByteArray _ = "";
-    QByteArray message = messageFormat.createFormat(1,pdfName, action, _);
+    QByteArray message = messageFormat.createFormat(MessageIndicator::ServerToController,pdfName, action, _);
     sendData(message);
 }
 
@@ -122,7 +122,7 @@ void App::UploadPDF() {
     }
 
     ActionMessage action = ActionMessage::Upload; 
-    QByteArray message = messageFormat.createFormat(1, fileName, action, data);
+    QByteArray message = messageFormat.createFormat(MessageIndicator::ServerToController, fileName, action, data);
     sendData(message);
 }
 
@@ -136,7 +136,7 @@ void App::Download() {
 
         ActionMessage action = ActionMessage::Download; 
         QByteArray _ = "";
-        QByteArray message = messageFormat.createFormat(1,fileName, action, _);
+        QByteArray message = messageFormat.createFormat(MessageIndicator::ServerToController,fileName, action, _);
         sendData(message);
     } else {
         qDebug() << "No se seleccionó ningún archivo." << fileName;
@@ -152,7 +152,7 @@ void App::CheckExistent() {
 
         ActionMessage action = ActionMessage::Check; 
         QByteArray _ = "";
-        QByteArray message = messageFormat.createFormat(1,fileName, action, _);
+        QByteArray message = messageFormat.createFormat(MessageIndicator::ServerToController,fileName, action, _);
         sendData(message);
     } else {
         qDebug() << "No se seleccionó ningún archivo." << fileName;
