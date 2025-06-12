@@ -1,5 +1,5 @@
 #include "controller.hpp"
-
+#include <QDataStream>
 NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : QTcpServer(parent), messageFormat(3)
 {
     blockSize = block;
@@ -26,55 +26,77 @@ void NodeController::incomingConnection(qintptr socketDescriptor){
     qInfo() << "New client connected:" << client->peerAddress().toString();
 }
 
-void NodeController::onReadyRead(){
-
+void NodeController::onReadyRead() {
     QTcpSocket *client = qobject_cast<QTcpSocket*>(sender());
     if (!client) return;
-    
-    QByteArray data = client->readAll();
-    messageFormat.readMessage(data);
-    emit dataReceived(client, data);
-    qDebug() << "Received from client, Indicator message:" << messageFormat.getIndicator();
-    if (messageFormat.getIndicator() == 1) { // Incoming message from GUI
-        if (messageFormat.getAction() == ActionMessage::Upload)
-        {
-            qDebug() << "Se cargo pdf :D";
-            ActionMessage action = messageFormat.getAction();
-            QByteArray newMessage = messageFormat.createFormat(3,messageFormat.getFileName(),action, messageFormat.getContent());
-            for (QTcpSocket* nodo : clients) {
-                if (nodo != client) { // evitar reenviar a quien hizo el upload
-                    sendData(nodo, newMessage);
-                    qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+
+    // Acumulate data on buffer.
+    buffers[client] += client->readAll();
+
+    // Procesar mensajes completos
+    while (buffers[client].size() >= 4) { // We asume that the first 4 bytes are for message size
+        // Read message size (first 4 bytes)
+        quint32 messageLength;
+        QDataStream stream(buffers[client]);
+        stream >> messageLength;
+
+        // Verify if message is complete
+        if (buffers[client].size() - static_cast<qint64>(sizeof(quint32)) >= static_cast<qint64>(messageLength)) {
+            // Extract message
+            QByteArray completeMessage = buffers[client].mid(4, messageLength);
+            buffers[client].remove(0, 4 + messageLength);
+
+            // Message procesor
+            messageFormat.readMessage(completeMessage);
+            emit dataReceived(client, completeMessage);
+            qDebug() << "Received from client: "<< messageFormat.getFileName() << "Indicator message:" << messageFormat.getIndicator();
+            qDebug() << "Primeros 200 bytes (hex):" << messageFormat.getContent().left(200).toHex(' ');  // ESpace between bytes
+            
+            // Lecture for nodes logic begins here
+            if (messageFormat.getIndicator() == 1) { // Incoming message from GUI
+                if (messageFormat.getAction() == ActionMessage::Upload)
+                {
+                    qDebug() << "Se cargo pdf :D";
+                    ActionMessage action = messageFormat.getAction();
+                    QByteArray newMessage = messageFormat.createFormat(3,messageFormat.getFileName(),action, messageFormat.getContent());
+                    for (QTcpSocket* nodo : clients) {
+                        if (nodo != client) { // avoid to resend message 
+                            sendData(nodo, newMessage);
+                            qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                        }
+                    }            
+                    // splitAndSave
                 }
-            }            
-            // splitAndSave
+                else if (messageFormat.getAction() == ActionMessage::Erase)
+                {
+                    qDebug() << "Se borro un pdf";
+                    // for nodo in nodos, enviar mensaje de borrar con messageFormat.getFileName()
+                }
+                else if (messageFormat.getAction() == ActionMessage::Check)
+                {
+                    qDebug() << "Se hizo check de existencia de pdf";
+                    // for pdf in pdfList, revisar si existe alguno subido con messageFormat.getFileName()
+                }
+                else if (messageFormat.getAction() == ActionMessage::Download) 
+                {
+                    qDebug() << "Se descarga un pdf";
+                    // for nodo in nodos, relizar reconstruccion de pdf, TODO: ver donde se debe guardar
+                }
+                else
+                {
+                    qDebug() << "Ningun commando de action calsa :c";
+                }
+                
+            }
+            else if (messageFormat.getIndicator() == 4) // Incoming from node
+            {
+                qDebug() << "Mensaje de nodo";
+            }
+
+        } else {
+            break; // Wait for more data
         }
-        else if (messageFormat.getAction() == ActionMessage::Erase)
-        {
-            qDebug() << "Se borro un pdf";
-            // for nodo in nodos, enviar mensaje de borrar con messageFormat.getFileName()
-        }
-        else if (messageFormat.getAction() == ActionMessage::Check)
-        {
-            qDebug() << "Se hizo check de existencia de pdf";
-            // for pdf in pdfList, revisar si existe alguno subido con messageFormat.getFileName()
-        }
-        else if (messageFormat.getAction() == ActionMessage::Download) 
-        {
-            qDebug() << "Se descarga un pdf";
-            // for nodo in nodos, relizar reconstruccion de pdf, TODO: ver donde se debe guardar
-        }
-        else
-        {
-            qDebug() << "Ningun commando de action calsa :c";
-        }
-        
     }
-    else if (messageFormat.getIndicator() == 4) // Incoming from node
-    {
-        qDebug() << "Mensaje de nodo";
-    }
-    
 }
 
 void NodeController::onDisconnected(){
@@ -88,16 +110,29 @@ void NodeController::onDisconnected(){
 
 // ========================= PDF SYSTEM FUNCTIONS =========================================
 
-void NodeController::sendData(QTcpSocket *client, const QByteArray &data){
+void NodeController::sendData(QTcpSocket *client, const QByteArray &data) {
+    if (!client || !client->isWritable()) {
+        qDebug() << "Error: Socket no válido o no escribible";
+        return;
+    }
 
-    qint64 bytesWritten = client->write(data);
+    // Creates a new longitude prefix (4 bytes)
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+    out << quint32(data.size());  // Longitude Prefix
+    block.append(data);           // Real data 
+
+    // Send block
+    qint64 bytesWritten = client->write(block);
     if (bytesWritten == -1) {
         qDebug() << "Error al enviar datos:" << client->errorString();
         return;
     }
-    
+
     if (!client->waitForBytesWritten(1000)) {
         qDebug() << "Timeout al enviar datos";
+    } else {
+        qDebug() << "Datos enviados correctamente. Tamaño:" << block.size();
     }
 }
 

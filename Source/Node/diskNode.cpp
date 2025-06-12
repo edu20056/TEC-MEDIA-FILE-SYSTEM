@@ -1,4 +1,5 @@
 #include "diskNode.hpp"
+#include <QDataStream>
 
 DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
     const QString path, quint16 id) 
@@ -75,14 +76,40 @@ bool DiskNode::initPath() {
 
 // =========================== CONNECTION FUNCTIONS  ==============================
 
-void DiskNode::onReadyRead(){
+// En la clase DiskNode (declaración como miembro privado)
+QHash<QTcpSocket*, QByteArray> buffers;  // Buffer por cliente
 
+void DiskNode::onReadyRead() {
     QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
     if (!socket) return;
-    qDebug() << "MENSAJE PRUEBA (esto es en diskNode onReadyRead)";
-    QByteArray data = socket->readAll();
-    messageFormat.readMessage(data);
-    qDebug() << "Received from client, Indicator message:" << messageFormat.getIndicator();
+
+    // Acumulate data on buffer.
+    buffers[socket] += socket->readAll();
+
+
+    while (buffers[socket].size() >= static_cast<qsizetype>(sizeof(quint32))) {
+        QDataStream stream(buffers[socket]);
+        quint32 messageLength;
+        stream >> messageLength; 
+
+        if (buffers[socket].size() - sizeof(quint32) >= messageLength) {
+            // Extraer el mensaje completo (sin el prefijo)
+            QByteArray completeMessage = buffers[socket].mid(sizeof(quint32), messageLength);
+            buffers[socket].remove(0, sizeof(quint32) + messageLength);
+
+            messageFormat.readMessage(completeMessage);
+            qDebug() << "[DiskNode] Mensaje recibido - Indicador:" << messageFormat.getIndicator();
+            qDebug() << "Nombre del archivo:" << messageFormat.getFileName();
+            qDebug() << "Tamaño del contenido:" << messageFormat.getContent().size();
+
+            // Opcional: Imprimir primeros bytes del contenido (hex)
+            if (!messageFormat.getContent().isEmpty()) {
+                qDebug() << "Primeros 50 bytes (hex):" << messageFormat.getContent().left(50).toHex(' ');
+            }
+        } else {
+            break;  
+        }
+    }
 }
 
 // =========================== SEND INFORMATION ==============================================

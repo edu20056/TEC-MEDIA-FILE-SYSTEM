@@ -42,32 +42,40 @@ QByteArray httpFormat::createFormat(int indicator, const QString& fileName, Acti
     return message;
 }
 
-void httpFormat::readMessage(const QByteArray& message)
-{
-    QList<QByteArray> lines = message.split('\n');
+void httpFormat::readMessage(const QByteArray& message) {
+    // Reseat previous values
+    numIndicator = 0;
+    fileName.clear();
+    contentLength = 0;
+    content.clear(); 
 
-    int i = 0; // Message position
+    // Headers and body message
+    int headerEnd = message.indexOf("\n\n");
+    if (headerEnd == -1) {
+        qDebug() << "Error: Delimitador '\\n\\n' no encontrado";
+        return;
+    }
 
-    while (i < lines.size() && !lines[i].isEmpty())
-    {
-        QByteArray line = lines[i];
-        if (line.startsWith("NumIndicator:"))
-        {
+    // Parse headers
+    QList<QByteArray> headers = message.left(headerEnd).split('\n');
+    for (const QByteArray &line : headers) {
+        if (line.startsWith("NumIndicator:")) {
             numIndicator = line.split(':')[1].trimmed().toInt();
-        }
-        else if (line.startsWith("FileName:"))
-        {
+        } else if (line.startsWith("FileName:")) {
             fileName = line.split(':')[1].trimmed();
-        }
-        else if (line.startsWith("Content-Length:"))
-        {
+        } else if (line.startsWith("Content-Length:")) {
             contentLength = line.split(':')[1].trimmed().toInt();
-        }
-        else if (line.startsWith("Action:"))
-        {
+        } else if (line.startsWith("Action:")) {
             action = stringToActionMessage(QString::fromUtf8(line.split(':')[1].trimmed()));
-        };
-        i++;
+        }
+    }
+
+    // Get binary pdf content
+    content = message.mid(headerEnd + 2); // +2 to skip \n\n
+
+    if (contentLength != content.size()) {
+        qDebug() << "Error: Content-Length no coincide con el tamaño real";
+        content.clear(); 
     }
 }
 

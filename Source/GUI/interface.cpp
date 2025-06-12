@@ -67,23 +67,27 @@ bool App::isConnected() const {
 // =========================== SEND INFORMATION WITH BUTTONS =================================
 
 void App::sendData(const QByteArray &data) {
-
     if (!isConnected()) {
         qDebug() << "No conectado, no se puede enviar datos";
         return;
     }
-    
-    qint64 bytesWritten = socket->write(data);
+
+    // Prepend message length (4 bytes) before sending
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+    out << quint32(data.size()); // Write message size as a 4-byte header
+    block.append(data); // Append the actual data
+
+    qint64 bytesWritten = socket->write(block);
     if (bytesWritten == -1) {
         qDebug() << "Error al enviar datos:" << socket->errorString();
         return;
     }
-    
+
     if (!socket->waitForBytesWritten(1000)) {
         qDebug() << "Timeout al enviar datos";
     }
 }
-
 void App::erasePDF()
 {
     QString pdfName = lineEditPDFName->text();

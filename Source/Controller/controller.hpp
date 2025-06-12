@@ -34,6 +34,7 @@ private slots:
 private:    
     QList<QTcpSocket*> clients;
     httpFormat messageFormat;
+    QHash<QTcpSocket*, QByteArray> buffers; // needed for sending messages correctly
 };
 
 #endif
