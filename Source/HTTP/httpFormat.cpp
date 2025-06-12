@@ -6,11 +6,36 @@ httpFormat::httpFormat(int type)
     Type = type;
 }
 
-QByteArray httpFormat::createFormat(int indicator, const QString& fileName, QString& action, const QByteArray& fileData)
+// =========================== ActionMessage <-----> String =====================================
+QString actionMessageToString(ActionMessage action) {
+    switch (action) {
+        case ActionMessage::Erase:        return "Erase";
+        case ActionMessage::Check:        return "Check";
+        case ActionMessage::Download:     return "Download";
+        case ActionMessage::Upload:       return "Upload";
+        case ActionMessage::Error:        return "Error";
+        case ActionMessage::MemoryStatus: return "MemoryStatus";
+        default:                          return "Unknown";
+    }
+}
+
+ActionMessage stringToActionMessage(const QString& str) {
+    if (str == "Erase")        return ActionMessage::Erase;
+    if (str == "Check")        return ActionMessage::Check;
+    if (str == "Download")     return ActionMessage::Download;
+    if (str == "Upload")       return ActionMessage::Upload;
+    if (str == "Error")        return ActionMessage::Error;
+    if (str == "MemoryStatus") return ActionMessage::MemoryStatus;
+    return ActionMessage::Error; // valor por defecto seguro
+}
+
+
+// =========================== CONSTRUCTOR ==========================================================================
+QByteArray httpFormat::createFormat(int indicator, const QString& fileName, ActionMessage& action, const QByteArray& fileData)
 {
     QByteArray message;
     message.append("NumIndicator: " + QByteArray::number(indicator) + "\n");
-    message.append("Action: " + action.toUtf8() + "\n");
+    message.append("Action: " + actionMessageToString(action).toUtf8() + "\n");
     message.append("FileName: " + fileName.toUtf8() + "\n");
     message.append("Content-Length: " + QByteArray::number(fileData.size()) + "\n\n");
     message.append(fileData);
@@ -40,16 +65,10 @@ void httpFormat::readMessage(const QByteArray& message)
         }
         else if (line.startsWith("Action:"))
         {
-            action = line.split(':')[1].trimmed();
+            action = stringToActionMessage(QString::fromUtf8(line.split(':')[1].trimmed()));
         };
         i++;
     }
-
-    // Show data
-    qDebug() << "NumIndicator:" << numIndicator;
-    qDebug() << "FileName:" << fileName;
-    qDebug() << "Content-Length:" << contentLength;
-    qDebug() << "Content:" << content.left(100); //first 100 bytes
 }
 
 // ================================== SETTERS ===================================
@@ -86,7 +105,7 @@ QByteArray httpFormat::getContent() const
     return content;
 }
 
-QString httpFormat::getAction() const 
+ActionMessage httpFormat::getAction() const 
 {
     return action;
 }

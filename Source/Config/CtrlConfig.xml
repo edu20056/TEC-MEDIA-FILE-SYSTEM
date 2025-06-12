@@ -1,5 +1,4 @@
 <CtrlConfig>
-    <ControllerIP>...</ControllerIP>
-    <ControllerPort>...</ControllerPort>
-    <TotalSpace>...</TotalSpace>
+    <ControllerPort>50000</ControllerPort>
+    <TotalSpace>25</TotalSpace>
 </CtrlConfig>

@@ -2,8 +2,9 @@
 
 DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
     const QString path, quint16 id) 
-    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id) {
+    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id), messageFormat(3) {
 
+    connect(socket, &QTcpSocket::readyRead, this, &DiskNode::onReadyRead);
     connect(socket, &QTcpSocket::connected, this, &DiskNode::onConnected);
     connect(socket, &QTcpSocket::disconnected, this, &DiskNode::onDisconnected);
     connect(socket, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::errorOccurred),
@@ -73,6 +74,18 @@ bool DiskNode::initPath() {
 }
 
 // =========================== CONNECTION FUNCTIONS  ==============================
+
+void DiskNode::onReadyRead(){
+
+    QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
+    if (!socket) return;
+    qDebug() << "MENSAJE PRUEBA (esto es en diskNode onReadyRead)";
+    QByteArray data = socket->readAll();
+    messageFormat.readMessage(data);
+    qDebug() << "Received from client, Indicator message:" << messageFormat.getIndicator();
+}
+
+// =========================== SEND INFORMATION ==============================================
 
 void DiskNode::sendData(const QByteArray &data) {
 

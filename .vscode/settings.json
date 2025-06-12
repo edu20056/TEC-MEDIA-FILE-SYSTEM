@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "qtcpsocket": "cpp",
-        "qxmlstreamreader": "cpp"
+        "qxmlstreamreader": "cpp",
+        "qtcpserver": "cpp",
+        "qobject": "cpp"
     }
 }

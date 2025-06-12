@@ -27,6 +27,7 @@ signals:
     void connectionStatusChanged(bool connected);
 
 private slots:
+    void onReadyRead();
     void onConnected();
     void onDisconnected();
     void onError(QAbstractSocket::SocketError error);
@@ -38,6 +39,7 @@ private:
     QTcpSocket *socket;
     QString path;
     quint16 nodeID;
+    httpFormat messageFormat;
 };
 
 #endif
