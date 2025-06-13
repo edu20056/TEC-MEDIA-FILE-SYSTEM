@@ -42,7 +42,6 @@ public:
 
     void SetType(int newType);
 
-    int getType() const; // <------
     MessageIndicator getIndicator() const; // <------
     QString getFileName() const;
     int getContentLenght() const;

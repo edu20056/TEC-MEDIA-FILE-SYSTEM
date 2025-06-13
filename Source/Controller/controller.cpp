@@ -51,37 +51,61 @@ void NodeController::onReadyRead() {
             emit dataReceived(client, completeMessage);
             MessageIndicator indicator = messageFormat.getIndicator();
             qDebug() << "Received from client: "<< messageFormat.getFileName() << "Indicator message:" << messageFormat.messageIndicatorToString(indicator);
-            qDebug() << "Primeros 200 bytes (hex):" << messageFormat.getContent().left(200).toHex(' ');  // ESpace between bytes
-            
+            qDebug() << "================================================================================";
             // Lecture for nodes logic begins here
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
                 if (messageFormat.getAction() == ActionMessage::Upload)
                 {
-                    qDebug() << "Se cargo pdf :D";
+                    qDebug() << "Se intenta cargar el pdf: " + messageFormat.getFileName();
                     ActionMessage action = messageFormat.getAction();
                     QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
                     for (QTcpSocket* nodo : clients) {
                         if (nodo != client) { // avoid to resend message 
                             sendData(nodo, newMessage);
                             qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                            qDebug() << "================================================================================";
                         }
                     }            
-                    // splitAndSave
+                    // splitAndSave logic
                 }
                 else if (messageFormat.getAction() == ActionMessage::Erase)
                 {
-                    qDebug() << "Se borro un pdf";
-                    // for nodo in nodos, enviar mensaje de borrar con messageFormat.getFileName()
+                    qDebug() << "Se intentara borrar: " + messageFormat.getFileName();
+                    ActionMessage action = messageFormat.getAction();
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
+                    for (QTcpSocket* nodo : clients) {
+                        if (nodo != client) { // avoid to resend message 
+                            sendData(nodo, newMessage);
+                            qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                            qDebug() << "================================================================================";
+                        }
+                    }  
                 }
                 else if (messageFormat.getAction() == ActionMessage::Check)
                 {
-                    qDebug() << "Se hizo check de existencia de pdf";
-                    // for pdf in pdfList, revisar si existe alguno subido con messageFormat.getFileName()
+                    qDebug() << "Revisa el estado de: " +  messageFormat.getFileName();
+                    ActionMessage action = messageFormat.getAction();
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
+                    for (QTcpSocket* nodo : clients) {
+                        if (nodo != client) { // avoid to resend message 
+                            sendData(nodo, newMessage);
+                            qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                            qDebug() << "================================================================================";
+                        }
+                    }  
                 }
                 else if (messageFormat.getAction() == ActionMessage::Download) 
                 {
-                    qDebug() << "Se descarga un pdf";
-                    // for nodo in nodos, relizar reconstruccion de pdf, TODO: ver donde se debe guardar
+                    qDebug() << "Se intenta descargar: " +  messageFormat.getFileName();
+                    ActionMessage action = messageFormat.getAction();
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
+                    for (QTcpSocket* nodo : clients) {
+                        if (nodo != client) { // avoid to resend message 
+                            sendData(nodo, newMessage);
+                            qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                            qDebug() << "================================================================================";
+                        }
+                    }  
                 }
                 else
                 {
@@ -91,7 +115,18 @@ void NodeController::onReadyRead() {
             }
             else if (messageFormat.getIndicator() == MessageIndicator::NodeToController) // Incoming from node
             {
-                qDebug() << "Mensaje de nodo";
+                qDebug() << "Mensaje desde nodo: " + messageFormat.getContent();
+                ActionMessage action = messageFormat.getAction();
+                QByteArray data = messageFormat.getContent();
+                QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
+                for (QTcpSocket* nodo : clients) {
+                    if (nodo != client) { // avoid to resend message 
+                        sendData(nodo, newMessage);
+                        qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                        qDebug() << "================================================================================";
+                    }
+                } 
+
             }
 
         } else {

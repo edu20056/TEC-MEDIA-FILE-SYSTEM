@@ -136,15 +136,57 @@ void DiskNode::onReadyRead() {
             buffers[socket].remove(0, sizeof(quint32) + messageLength);
 
             messageFormat.readMessage(completeMessage);
-            QFileInfo fileInfo(messageFormat.getFileName());
 
-            inputNotification(messageFormat, fileInfo.fileName());
+            inputNotification(messageFormat, messageFormat.getFileName());
+            if (messageFormat.getIndicator() == MessageIndicator::ControllerToNode)
+            {
+                QByteArray data;
+                if (messageFormat.getAction() == ActionMessage::Upload){
+                    bool success = storeFile(messageFormat.getContent(), messageFormat.getFileName());
+                    qDebug().noquote() << QString("[Upload] Success       : %1").arg(success);
+                    // if se puede subir data = "se puede subir" ---- else data = "No se puede subir"
+                    data = "Se sube el pdf: " + messageFormat.getFileName().toUtf8();
+                    MessageIndicator indicator = MessageIndicator::NodeToController;
+                    ActionMessage action = ActionMessage::Upload;
+                    QByteArray message = messageFormat.createFormat(indicator,messageFormat.getFileName(),action,data);
+                    sendData(message);
+                }
 
-            if (messageFormat.getAction() == ActionMessage::Upload){
-                bool success = storeFile(messageFormat.getContent(), fileInfo.completeBaseName());
-                qDebug().noquote() << QString("[Upload] Success       : %1").arg(success);
+                else if (messageFormat.getAction() == ActionMessage::Erase)
+                {
+                    qDebug() << "Se intenta borrar un pdf: " + messageFormat.getFileName();
+                    // logica de borrar un pdf......
+                    // if se logra borrar ..........
+                    data = "Se borra el pdf: " + messageFormat.getFileName().toUtf8();
+                    MessageIndicator indicator = MessageIndicator::NodeToController;
+                    ActionMessage action = ActionMessage::Erase;
+                    QByteArray message = messageFormat.createFormat(indicator,messageFormat.getFileName(),action,data);
+                    sendData(message);
+                }
+
+                else if (messageFormat.getAction() == ActionMessage::Download)
+                {  
+                    // Falta revisar como hacer la reconeccion de nodos.....
+                    qDebug() << "El nodo empieza a mandar info para descarga de pdf";
+                }
+
+                else if (messageFormat.getAction() == ActionMessage::Check)
+                {
+                    qDebug() << "Se verifica estatus de pdf: " + messageFormat.getFileName();
+                    // logica de borrar un pdf......
+                    // if existe y se puede descargar..........
+                    data = "El pdf esta disponible";
+                    MessageIndicator indicator = MessageIndicator::NodeToController;
+                    ActionMessage action = ActionMessage::Check;
+                    QByteArray message = messageFormat.createFormat(indicator,messageFormat.getFileName(),action,data);
+                    sendData(message);
+                }
             }
-
+            else
+            {
+                qDebug() << "Se recibio un mensaje que NO era para nodo!";
+            }
+            
         } else break;
     }
 }
@@ -157,13 +199,19 @@ void DiskNode::sendData(const QByteArray &data) {
         qDebug() << "No conectado, no se puede enviar datos";
         return;
     }
-    
-    qint64 bytesWritten = socket->write(data);
+
+    // Prepend message length (4 bytes) before sending
+    QByteArray block;
+    QDataStream out(&block, QIODevice::WriteOnly);
+    out << quint32(data.size()); // Write message size as a 4-byte header
+    block.append(data); // Append the actual data
+
+    qint64 bytesWritten = socket->write(block);
     if (bytesWritten == -1) {
         qDebug() << "Error al enviar datos:" << socket->errorString();
         return;
     }
-    
+
     if (!socket->waitForBytesWritten(1000)) {
         qDebug() << "Timeout al enviar datos";
     }
