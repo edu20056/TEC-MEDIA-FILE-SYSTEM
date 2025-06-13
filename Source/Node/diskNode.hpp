@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QTcpSocket>
 #include <QDir>
+#include <QDataStream>
 #include "../HTTP/httpFormat.hpp"
 #include "../Config/xmlReader.hpp"
 
@@ -31,6 +32,10 @@ private slots:
     void onConnected();
     void onDisconnected();
     void onError(QAbstractSocket::SocketError error);
+
+    QByteArray buildMessage(MessageIndicator indicator, const QString &fileName,
+        ActionMessage action, const QByteArray &data);
+    void sendStatus();
 
     void nodeInfo() const;
     void inputNotification(httpFormat const &messageData, QString fileName) const;

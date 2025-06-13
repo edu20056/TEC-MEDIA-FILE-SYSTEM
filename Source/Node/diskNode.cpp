@@ -1,5 +1,4 @@
 #include "diskNode.hpp"
-#include <QDataStream>
 
 DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
     const QString path, quint16 id) 
@@ -18,19 +17,17 @@ DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
 // ======================== CONNECTION FUNCTIONS ============================================
 
 void DiskNode::onConnected() {
-
     emit connectionStatusChanged(true);
     nodeInfo(); 
+    sendStatus();
 }
 
 void DiskNode::onDisconnected() {
-
     emit connectionStatusChanged(false);
     nodeInfo(); 
 }
 
 void DiskNode::onError(QAbstractSocket::SocketError error) {
-
     Q_UNUSED(error);
     qDebug() << "Error de socket:" << socket->errorString();
 }
@@ -95,6 +92,7 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     if (bytesWritten == -1) return false;
     file.close();
 
+    sendStatus();
     return reconstructPdf(data, fileName); 
 }
 
@@ -117,7 +115,53 @@ bool DiskNode::reconstructPdf(const QByteArray& pdfData, const QString& fileName
     return bytesWritten == pdfData.size();
 }
 
+// ================================= AUXILIARY =====================================  
+
+QByteArray DiskNode::buildMessage(MessageIndicator indicator, const QString &fileName,
+                                  ActionMessage action, const QByteArray &data) {
+    return messageFormat.createFormat(indicator, fileName, action, data);
+}
+
 // =========================== CONNECTION FUNCTIONS  ==============================  
+
+void DiskNode::sendStatus() {
+    if (!isConnected()) {
+        qDebug() << "No conectado, no se puede enviar estatus.";
+        return;
+    }
+
+    QDir dir(path);
+    if (!dir.exists()) {
+        qDebug() << "Directorio del nodo no existe.";
+        return;
+    }
+
+    QStringList files = dir.entryList(QDir::Files | QDir::NoDotAndDotDot);
+    QStringList fileNames;
+
+    for (const QString &file : files) {
+        fileNames << file;
+    }
+
+    QString statusText;
+    statusText += QString("Node ID: %1\n").arg(nodeID);
+    statusText += QString("Connected: %1\n").arg(isConnected() ? "Yes" : "No");
+    statusText += QString("File Count: %1\n").arg(fileNames.size());
+
+    for (const QString &file : fileNames) {
+        statusText += QString(" - %1\n").arg(file);
+    }
+
+    QByteArray data = statusText.toUtf8();
+    QByteArray message = buildMessage(
+        MessageIndicator::NodeToController,
+        "StatusReport",
+        ActionMessage::MemoryStatus,
+        data
+    );
+
+    sendData(message);
+}
 
 void DiskNode::onReadyRead() {
 
@@ -138,60 +182,48 @@ void DiskNode::onReadyRead() {
             messageFormat.readMessage(completeMessage);
 
             inputNotification(messageFormat, messageFormat.getFileName());
-            if (messageFormat.getIndicator() == MessageIndicator::ControllerToNode)
-            {
+
+            if (messageFormat.getIndicator() == MessageIndicator::ControllerToNode) {
                 QByteArray data;
-                if (messageFormat.getAction() == ActionMessage::Upload){
-                    bool success = storeFile(messageFormat.getContent(), messageFormat.getFileName());
+
+                const QString &fileName = messageFormat.getFileName();
+
+                if (messageFormat.getAction() == ActionMessage::Upload) {
+                    bool success = storeFile(messageFormat.getContent(), fileName);
                     qDebug().noquote() << QString("[Upload] Success       : %1").arg(success);
-                    // if se puede subir data = "se puede subir" ---- else data = "No se puede subir"
-                    data = "Se sube el pdf: " + messageFormat.getFileName().toUtf8();
-                    MessageIndicator indicator = MessageIndicator::NodeToController;
-                    ActionMessage action = ActionMessage::Upload;
-                    QByteArray message = messageFormat.createFormat(indicator,messageFormat.getFileName(),action,data);
-                    sendData(message);
+
+                    data = "Se sube el pdf: " + fileName.toUtf8();
+                    sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Upload, data));
                 }
 
-                else if (messageFormat.getAction() == ActionMessage::Erase)
-                {
-                    qDebug() << "Se intenta borrar un pdf: " + messageFormat.getFileName();
-                    // logica de borrar un pdf......
-                    // if se logra borrar ..........
-                    data = "Se borra el pdf: " + messageFormat.getFileName().toUtf8();
-                    MessageIndicator indicator = MessageIndicator::NodeToController;
-                    ActionMessage action = ActionMessage::Erase;
-                    QByteArray message = messageFormat.createFormat(indicator,messageFormat.getFileName(),action,data);
-                    sendData(message);
+                else if (messageFormat.getAction() == ActionMessage::Erase) {
+                    qDebug() << "Se intenta borrar un pdf: " + fileName;
+                    // lógica real de borrado aquí...
+
+                    data = "Se borra el pdf: " + fileName.toUtf8();
+                    sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data));
                 }
 
-                else if (messageFormat.getAction() == ActionMessage::Download)
-                {  
-                    // Falta revisar como hacer la reconeccion de nodos.....
+                else if (messageFormat.getAction() == ActionMessage::Download) {
                     qDebug() << "El nodo empieza a mandar info para descarga de pdf";
+                    // lógica futura para descarga
                 }
 
-                else if (messageFormat.getAction() == ActionMessage::Check)
-                {
-                    qDebug() << "Se verifica estatus de pdf: " + messageFormat.getFileName();
-                    // logica de borrar un pdf......
-                    // if existe y se puede descargar..........
-                    data = "El pdf esta disponible";
-                    MessageIndicator indicator = MessageIndicator::NodeToController;
-                    ActionMessage action = ActionMessage::Check;
-                    QByteArray message = messageFormat.createFormat(indicator,messageFormat.getFileName(),action,data);
-                    sendData(message);
+                else if (messageFormat.getAction() == ActionMessage::Check) {
+                    qDebug() << "Se verifica estatus de pdf: " + fileName;
+                    // lógica real de verificación aquí...
+
+                    data = "El pdf está disponible";
+                    sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Check, data));
                 }
+
+            } else {
+                qDebug() << "Se recibió un mensaje que NO era para nodo!";
             }
-            else
-            {
-                qDebug() << "Se recibio un mensaje que NO era para nodo!";
-            }
-            
+
         } else break;
     }
 }
-
-// =========================== SEND INFORMATION ==============================================
 
 void DiskNode::sendData(const QByteArray &data) {
 
@@ -200,11 +232,10 @@ void DiskNode::sendData(const QByteArray &data) {
         return;
     }
 
-    // Prepend message length (4 bytes) before sending
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);
-    out << quint32(data.size()); // Write message size as a 4-byte header
-    block.append(data); // Append the actual data
+    out << quint32(data.size());
+    block.append(data);
 
     qint64 bytesWritten = socket->write(block);
     if (bytesWritten == -1) {
