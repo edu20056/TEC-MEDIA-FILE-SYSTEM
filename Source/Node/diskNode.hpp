@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QTcpSocket>
 #include <QDir>
+#include <QStringList>
 #include <QDataStream>
 #include "../HTTP/httpFormat.hpp"
 #include "../Config/xmlReader.hpp"
@@ -50,6 +51,7 @@ private:
     quint16 nodeID;
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
+    QStringList fileNamesAdded;
 };
 
 #endif

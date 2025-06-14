@@ -189,6 +189,13 @@ void DiskNode::onReadyRead() {
                 const QString &fileName = messageFormat.getFileName();
 
                 if (messageFormat.getAction() == ActionMessage::Upload) {
+
+                    if (!fileNamesAdded.contains(messageFormat.getFileName()))
+                    {
+                        fileNamesAdded.append(messageFormat.getFileName());
+
+                    }
+
                     bool success = storeFile(messageFormat.getContent(), fileName);
                     qDebug().noquote() << QString("[Upload] Success       : %1").arg(success);
 

@@ -1,4 +1,4 @@
-#include "controller.hpp"
+#include "controller.hpp"buffclientNum
 
 NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : QTcpServer(parent)
 {
@@ -22,7 +22,10 @@ void NodeController::incomingConnection(qintptr socketDescriptor) {
     connect(client, &QTcpSocket::disconnected, client, &QTcpSocket::deleteLater);
 
     clients.append(client);
-    clientTypes.insert(client, ClientType::Unknown);  // <- nuevo
+    ClientIdentificator identificator;
+    identificator.id == 0;
+    identificator.type == ClientType::Unknown;
+    clientTypes.insert(client, identificator);  // <- nuevo
     qInfo() << "New client connected:" << client->peerAddress().toString();
 }
 
@@ -33,16 +36,17 @@ void NodeController::onReadyRead() {
     // Acumulate data on buffer.
     buffers[client] += client->readAll();
 
-    if (clientTypes[client] == ClientType::Unknown) 
+    if (clientTypes[client].type == ClientType::Unknown) 
     {
         if (clientNum <= 4)  // First 4 incoming connections are nodes.
         {
-            clientTypes[client] = ClientType::DiskNode;
+            clientTypes[client].type = ClientType::DiskNode;
         }  
         else
         {
-            clientTypes[client] = ClientType::Gui;
+            clientTypes[client].type = ClientType::Gui;
         }
+        clientTypes[client].id = clientNum;
         clientNum++;
     }
     // Procesar mensajes completos
@@ -78,7 +82,7 @@ void NodeController::onReadyRead() {
                     ActionMessage action = messageFormat.getAction();
                     QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
                     for (QTcpSocket* nodo : clientTypes.keys()) {
-                        if (clientTypes.value(nodo) == ClientType::DiskNode) { 
+                        if (clientTypes.value(nodo).type == ClientType::DiskNode) { 
                             sendData(nodo, newMessage);
                             qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
                             qDebug() << "================================================================================";
@@ -138,7 +142,7 @@ void NodeController::onReadyRead() {
                 QByteArray data = messageFormat.getContent();
                 QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
                 for (QTcpSocket* nodo : clientTypes.keys()) {
-                    if (clientTypes.value(nodo) == ClientType::Gui) {
+                    if (clientTypes.value(nodo).type == ClientType::Gui) {
                         sendData(nodo, newMessage);
                         qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
                         qDebug() << "================================================================================";
@@ -168,7 +172,7 @@ void NodeController::uploadBlksIntoNodes(const QByteArray& fileData, const QStri
     QList<QTcpSocket*> nodeSockets;
 
     for (QTcpSocket* socket : clientTypes.keys()) {
-        if (clientTypes[socket] == ClientType::DiskNode) {
+        if (clientTypes[socket].type == ClientType::DiskNode) {
             nodeSockets.append(socket);
         }
     }

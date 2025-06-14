@@ -19,6 +19,13 @@ enum class ClientType {
     DiskNode
 };
 
+struct ClientIdentificator
+{
+    ClientType type;
+    int id; // From 1 to 4 are nodes, 5 is the GUI
+};
+
+
 class NodeController : public QTcpServer {
     Q_OBJECT
 public:
@@ -45,7 +52,7 @@ private:
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
     int clientNum = 1;
-    QHash<QTcpSocket*, ClientType> clientTypes; // map 
+    QHash<QTcpSocket*, ClientIdentificator> clientTypes; // map 
 
 };
 
