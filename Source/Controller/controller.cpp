@@ -75,20 +75,8 @@ void NodeController::onReadyRead() {
             }
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
                 if (messageFormat.getAction() == ActionMessage::Upload) {
-
                     
-
-                    qDebug() << "Se intenta cargar el pdf: " + messageFormat.getFileName();
-                    ActionMessage action = messageFormat.getAction();
-                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
-                    for (QTcpSocket* nodo : clientTypes.keys()) {
-                        if (clientTypes.value(nodo).type == ClientType::DiskNode) { 
-                            sendData(nodo, newMessage);
-                            qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
-                            qDebug() << "================================================================================";
-                        }
-                    }            
-                    // splitAndSave logic
+                    uploadBlksIntoNodes(messageFormat.getContent(), messageFormat.getFileName(), blockSize);
                 }
                 else if (messageFormat.getAction() == ActionMessage::Erase)
                 {
@@ -167,33 +155,66 @@ void NodeController::onDisconnected(){
 }
 
 void NodeController::uploadBlksIntoNodes(const QByteArray& fileData, const QString& fileName, quint64 blockSize) {
-
     QList<QByteArray> blocks = splitIntoBlocks(fileData, blockSize);
-    QList<QTcpSocket*> nodeSockets;
 
+    QMap<int, QTcpSocket*> idToSocket;
     for (QTcpSocket* socket : clientTypes.keys()) {
         if (clientTypes[socket].type == ClientType::DiskNode) {
-            nodeSockets.append(socket);
+            idToSocket[clientTypes[socket].id] = socket;
         }
     }
 
-    if (nodeSockets.size() < 4) {
+    QList<QTcpSocket*> nodeSockets = idToSocket.values();
+    int numDisks = nodeSockets.size();
+
+    if (numDisks < 4) {
         qWarning() << "!ERROR: NOT ENOUGH DISKS";
         return;
     }
 
-    int rowsNum = blocks.size() / 3;
-    int globalBlockIndex = 0;
+    int groupSize = numDisks - 1;
+    int totalGroups = blocks.size() / groupSize;
+    int dataBlockIndex = 0;
+    int parityCount = 1;
 
-    for (int g = 0; g < rowsNum; ++g) {
-        QList<QByteArray> packages;
-
-        // Extract the 3 blocks corresponding to the iteration
-        for (int j = 0; j < 3; ++j) {
-
+    for (int g = 0; g < totalGroups; ++g) {
+        QList<QByteArray> dataBlocks;
+        
+        for (int i = 0; i < groupSize; ++i) {
+            dataBlocks.append(blocks[g * groupSize + i]);
         }
 
+        QByteArray parityBlock = calculateParity(dataBlocks[0], dataBlocks[1], dataBlocks[2]);
+
+        int parityIndex = (numDisks - 1 - ((currentRaidRow + g) % numDisks));
+        int dataIndex = 0;
+
+        for (int d = 0; d < numDisks; ++d) {
+            QByteArray blockToSend;
+            QString blockName;
+
+            if (d == parityIndex) {
+                blockToSend = parityBlock;
+                blockName = QString("%1_p%2").arg(fileName).arg(parityCount++);
+            } else {
+                blockToSend = dataBlocks[dataIndex++];
+                blockName = QString("%1_%2").arg(fileName).arg(dataBlockIndex++);
+            }
+
+            ActionMessage action = ActionMessage::Upload;
+            QByteArray formattedMessage = messageFormat.createFormat(
+                MessageIndicator::ControllerToNode,
+                blockName,
+                action,
+                blockToSend
+            );
+
+            sendData(nodeSockets[d], formattedMessage);
+            qDebug() << "BLK" << blockName << "SENT TO NODE ID" << (d + 1);
+        }
     }
+
+    currentRaidRow += totalGroups;
 }
 
 void NodeController::sendData(QTcpSocket *client, const QByteArray &data) {
@@ -225,15 +246,15 @@ void NodeController::sendData(QTcpSocket *client, const QByteArray &data) {
 // ========================= PDF SYSTEM FUNCTIONS =========================================
 
 QList<QByteArray> NodeController::splitIntoBlocks(const QByteArray& data, quint64 blockSize) {
-
+    
     QList<QByteArray> blocks;
-    int totalSize = data.size();
-    int offset = 0;
+    quint64 totalSize = data.size();
+    quint64 offset = 0;
 
     while (offset < totalSize) {
         QByteArray block = data.mid(offset, blockSize);
 
-        if (block.size() < blockSize) {
+        if (static_cast<quint64>(block.size()) < blockSize) {
             block.append(QByteArray(blockSize - block.size(), '\0'));
         }
 

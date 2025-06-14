@@ -93,7 +93,8 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     file.close();
 
     sendStatus();
-    return reconstructPdf(data, fileName); 
+    // reconstructPdf(data, fileName); 
+    return true; 
 }
 
 bool DiskNode::reconstructPdf(const QByteArray& pdfData, const QString& fileName) {

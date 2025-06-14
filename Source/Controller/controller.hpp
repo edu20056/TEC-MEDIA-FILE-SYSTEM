@@ -52,7 +52,8 @@ private:
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
     int clientNum = 1;
-    QHash<QTcpSocket*, ClientIdentificator> clientTypes; // map 
+    QHash<QTcpSocket*, ClientIdentificator> clientTypes;
+    int currentRaidRow = 0;
 
 };
 

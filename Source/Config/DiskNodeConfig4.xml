@@ -4,5 +4,5 @@
     <ControllerPort>50000</ControllerPort>
     <StoragePath>Node/Core</StoragePath>
     <DiskSize>...</DiskSize>
-    <BlockSize>...</BlockSize>
+    <BlockSize>512</BlockSize>
 </DiskNodeConfig>
