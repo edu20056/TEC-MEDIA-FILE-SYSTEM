@@ -13,7 +13,7 @@ NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : Q
 
 // ======================= CONNECTION FUNCTIONS =====================================
 
-void NodeController::incomingConnection(qintptr socketDescriptor){
+void NodeController::incomingConnection(qintptr socketDescriptor) {
     QTcpSocket *client = new QTcpSocket(this);
     client->setSocketDescriptor(socketDescriptor);
     
@@ -70,8 +70,10 @@ void NodeController::onReadyRead() {
                 break; // Wait for more data
             }
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
-                if (messageFormat.getAction() == ActionMessage::Upload)
-                {
+                if (messageFormat.getAction() == ActionMessage::Upload) {
+
+                    
+
                     qDebug() << "Se intenta cargar el pdf: " + messageFormat.getFileName();
                     ActionMessage action = messageFormat.getAction();
                     QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
@@ -160,7 +162,35 @@ void NodeController::onDisconnected(){
     qInfo() << "Client disconnected:" << client->peerAddress().toString();
 }
 
-// ========================= PDF SYSTEM FUNCTIONS =========================================
+void NodeController::uploadBlksIntoNodes(const QByteArray& fileData, const QString& fileName, quint64 blockSize) {
+
+    QList<QByteArray> blocks = splitIntoBlocks(fileData, blockSize);
+    QList<QTcpSocket*> nodeSockets;
+
+    for (QTcpSocket* socket : clientTypes.keys()) {
+        if (clientTypes[socket] == ClientType::DiskNode) {
+            nodeSockets.append(socket);
+        }
+    }
+
+    if (nodeSockets.size() < 4) {
+        qWarning() << "!ERROR: NOT ENOUGH DISKS";
+        return;
+    }
+
+    int rowsNum = blocks.size() / 3;
+    int globalBlockIndex = 0;
+
+    for (int g = 0; g < rowsNum; ++g) {
+        QList<QByteArray> packages;
+
+        // Extract the 3 blocks corresponding to the iteration
+        for (int j = 0; j < 3; ++j) {
+
+        }
+
+    }
+}
 
 void NodeController::sendData(QTcpSocket *client, const QByteArray &data) {
     if (!client || !client->isWritable()) {
@@ -187,6 +217,8 @@ void NodeController::sendData(QTcpSocket *client, const QByteArray &data) {
         qDebug() << "Datos enviados correctamente. Tamaño:" << block.size();
     }
 }
+
+// ========================= PDF SYSTEM FUNCTIONS =========================================
 
 QList<QByteArray> NodeController::splitIntoBlocks(const QByteArray& data, quint64 blockSize) {
 

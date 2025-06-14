@@ -26,8 +26,8 @@ public:
     explicit NodeController(QObject *parent = nullptr, quint16 port = 50000, quint64 blockSize = 1024);
     void sendData(QTcpSocket *client, const QByteArray &data);
     QList<QByteArray> splitIntoBlocks(const QByteArray& data, quint64 blockSize);
-    QByteArray NodeController::calculateParity(const QByteArray& block1, const QByteArray& block2, const QByteArray& block3);
-    void uploadFile(QList<QByteArray> blks);
+    QByteArray calculateParity(const QByteArray& block1, const QByteArray& block2, const QByteArray& block3);
+    void uploadBlksIntoNodes(const QByteArray& fileData, const QString& fileName, quint64 blockSize);
     void reconstructPDF(QString pdfName);
 
 signals:
