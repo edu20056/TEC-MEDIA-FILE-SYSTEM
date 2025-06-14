@@ -13,13 +13,21 @@
 #include "../HTTP/httpFormat.hpp"
 #include "../Config/xmlReader.hpp"
 
+enum class ClientType {
+    Unknown,
+    Gui,
+    DiskNode
+};
+
 class NodeController : public QTcpServer {
     Q_OBJECT
 public:
     int blockSize;
     explicit NodeController(QObject *parent = nullptr, quint16 port = 50000, quint64 blockSize = 1024);
     void sendData(QTcpSocket *client, const QByteArray &data);
-    void splitAndSavePDF();
+    QList<QByteArray> splitIntoBlocks(const QByteArray& data, quint64 blockSize);
+    QByteArray NodeController::calculateParity(const QByteArray& block1, const QByteArray& block2, const QByteArray& block3);
+    void uploadFile(QList<QByteArray> blks);
     void reconstructPDF(QString pdfName);
 
 signals:
@@ -36,6 +44,9 @@ private:
     QList<QTcpSocket*> clients;
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
+    int clientNum = 1;
+    QHash<QTcpSocket*, ClientType> clientTypes; // map 
+
 };
 
 #endif

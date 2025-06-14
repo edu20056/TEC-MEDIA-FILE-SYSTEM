@@ -14,7 +14,6 @@ NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : Q
 // ======================= CONNECTION FUNCTIONS =====================================
 
 void NodeController::incomingConnection(qintptr socketDescriptor){
-
     QTcpSocket *client = new QTcpSocket(this);
     client->setSocketDescriptor(socketDescriptor);
     
@@ -23,6 +22,7 @@ void NodeController::incomingConnection(qintptr socketDescriptor){
     connect(client, &QTcpSocket::disconnected, client, &QTcpSocket::deleteLater);
 
     clients.append(client);
+    clientTypes.insert(client, ClientType::Unknown);  // <- nuevo
     qInfo() << "New client connected:" << client->peerAddress().toString();
 }
 
@@ -33,6 +33,18 @@ void NodeController::onReadyRead() {
     // Acumulate data on buffer.
     buffers[client] += client->readAll();
 
+    if (clientTypes[client] == ClientType::Unknown) 
+    {
+        if (clientNum <= 4)  // First 4 incoming connections are nodes.
+        {
+            clientTypes[client] = ClientType::DiskNode;
+        }  
+        else
+        {
+            clientTypes[client] = ClientType::Gui;
+        }
+        clientNum++;
+    }
     // Procesar mensajes completos
     while (buffers[client].size() >= 4) { // We asume that the first 4 bytes are for message size
         // Read message size (first 4 bytes)
@@ -53,14 +65,18 @@ void NodeController::onReadyRead() {
             qDebug() << "Received from client: "<< messageFormat.getFileName() << "Indicator message:" << messageFormat.messageIndicatorToString(indicator);
             qDebug() << "================================================================================";
             // Lecture for nodes logic begins here
+            if (messageFormat.getAction() == ActionMessage::MemoryStatus)
+            {
+                break; // Wait for more data
+            }
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
                 if (messageFormat.getAction() == ActionMessage::Upload)
                 {
                     qDebug() << "Se intenta cargar el pdf: " + messageFormat.getFileName();
                     ActionMessage action = messageFormat.getAction();
                     QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
-                    for (QTcpSocket* nodo : clients) {
-                        if (nodo != client) { // avoid to resend message 
+                    for (QTcpSocket* nodo : clientTypes.keys()) {
+                        if (clientTypes.value(nodo) == ClientType::DiskNode) { 
                             sendData(nodo, newMessage);
                             qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
                             qDebug() << "================================================================================";
@@ -119,8 +135,8 @@ void NodeController::onReadyRead() {
                 ActionMessage action = messageFormat.getAction();
                 QByteArray data = messageFormat.getContent();
                 QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
-                for (QTcpSocket* nodo : clients) {
-                    if (nodo != client) { // avoid to resend message 
+                for (QTcpSocket* nodo : clientTypes.keys()) {
+                    if (clientTypes.value(nodo) == ClientType::Gui) {
                         sendData(nodo, newMessage);
                         qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
                         qDebug() << "================================================================================";
@@ -172,50 +188,49 @@ void NodeController::sendData(QTcpSocket *client, const QByteArray &data) {
     }
 }
 
-void NodeController::splitAndSavePDF(){
-    QFile file("Source");
-    if (!file.open(QIODevice::ReadOnly)) {
-        qDebug() << "No se pudo abrir el archivo PDF.";
-        return;
+QList<QByteArray> NodeController::splitIntoBlocks(const QByteArray& data, quint64 blockSize) {
+
+    QList<QByteArray> blocks;
+    int totalSize = data.size();
+    int offset = 0;
+
+    while (offset < totalSize) {
+        QByteArray block = data.mid(offset, blockSize);
+
+        if (block.size() < blockSize) {
+            block.append(QByteArray(blockSize - block.size(), '\0'));
+        }
+
+        blocks.append(block);
+        offset += blockSize;
     }
 
-    QByteArray data = file.readAll();
-    file.close();
-
-    if (data.isEmpty()) {
-        qDebug() << "El archivo PDF está vacío";
-        return;
-    }
-
-    qint64 totalSize = data.size();
-    qint64 partSize = totalSize / 3;
-    qint64 remainder = totalSize % 3;
-
-    QString baseName = QFileInfo("Source").baseName();
-    QString saveDir = QDir::currentPath() + "/Node";
-
-    if (!QDir(saveDir).exists()) {
-        QDir().mkdir(saveDir);
-    }
-
-    qint64 position = 0;
-    for (int i = 0; i < 3; ++i) {
-        QString partFileName = saveDir + "/" + baseName + "_" + QString::number(i + 1);
-        QFile partFile(partFileName);
-        if (partFile.open(QIODevice::WriteOnly)) {
-            qint64 bytesToWrite = partSize;
-            if (i == 2) bytesToWrite += remainder;
-
-            partFile.write(data.constData() + position, bytesToWrite);
-            partFile.close();
-
-            qDebug() << "Parte" << i + 1 << "guardada:" << partFileName << "(" << bytesToWrite << "bytes )";
-
-            position += bytesToWrite;
-        } else {
-            qDebug() << "No se pudo guardar la parte" << i + 1;
+    int remainder = blocks.size() % 3;
+    if (remainder != 0) {
+        int blocksToAdd = 3 - remainder;
+        for (int i = 0; i < blocksToAdd; ++i) {
+            blocks.append(QByteArray(blockSize, '\0'));
         }
     }
+
+    return blocks;
+}
+
+QByteArray NodeController::calculateParity(const QByteArray& block1, const QByteArray& block2, const QByteArray& block3) {
+
+    if (!(block1.size() == block2.size() && block2.size() == block3.size())) {
+        qWarning() << "!ERROR : Something wrong with block size";
+        return QByteArray();
+    }
+
+    int blockSize = block1.size();
+    QByteArray parityBlock(blockSize, '\0');
+
+    for (int i = 0; i < blockSize; ++i) {
+        parityBlock[i] = block1[i] ^ block2[i] ^ block3[i];
+    }
+
+    return parityBlock;
 }
 
 void NodeController::reconstructPDF(QString pdfName) { // pdfName must be obtained by a httpFormat object
