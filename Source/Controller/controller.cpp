@@ -1,4 +1,4 @@
-#include "controller.hpp"buffclientNum
+#include "controller.hpp"
 
 NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : QTcpServer(parent)
 {
@@ -23,8 +23,8 @@ void NodeController::incomingConnection(qintptr socketDescriptor) {
 
     clients.append(client);
     ClientIdentificator identificator;
-    identificator.id == 0;
-    identificator.type == ClientType::Unknown;
+    identificator.id = 0;
+    identificator.type = ClientType::Unknown;
     clientTypes.insert(client, identificator);  // <- nuevo
     qInfo() << "New client connected:" << client->peerAddress().toString();
 }

@@ -218,9 +218,18 @@ void DiskNode::onReadyRead() {
 
                 else if (messageFormat.getAction() == ActionMessage::Check) {
                     qDebug() << "Se verifica estatus de pdf: " + fileName;
-                    // lógica real de verificación aquí...
 
-                    data = "El pdf está disponible";
+                    if (!fileNamesAdded.contains(fileName))
+                    {
+                        data = "El pdf no se encuentra disponible.";
+                        qDebug() << "No disponible";
+                    }
+                    else
+                    {
+                        data = "El pdf está disponible";
+                    }
+
+                    qDebug() << "Pdf disponible";
                     sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Check, data));
                 }
 
