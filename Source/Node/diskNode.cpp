@@ -140,6 +140,37 @@ QByteArray DiskNode::buildMessage(MessageIndicator indicator, const QString &fil
     return messageFormat.createFormat(indicator, fileName, action, data);
 }
 
+void DiskNode::searchAndSendPdfBlocks(const QString& path, const QString& fileName){
+    QDir dir(path);
+
+    if (!dir.exists()) {
+        qDebug() << "La carpeta no existe.";
+        return;
+    }
+
+    // List with file names on path
+    QStringList archivos = dir.entryList(QDir::Files);
+
+    for (const QString& archivo : archivos) {
+        if (archivo.startsWith(fileName)) {
+
+            // Open and read file
+            QFile file(dir.filePath(archivo));
+            if (file.open(QIODevice::ReadOnly)) {
+                QByteArray content = file.readAll();
+                file.close();
+                sendData(buildMessage(MessageIndicator::NodeToController,archivo, ActionMessage::Download,content));
+                
+            } else {
+                qDebug() << "No se pudo abrir el archivo:" << archivo;
+            }
+            
+        }
+    }
+    sendData(buildMessage(MessageIndicator::NodeToController,fileName, ActionMessage::Download,"FINISHED"));
+                
+}
+
 // =========================== CONNECTION FUNCTIONS  ==============================  
 
 void DiskNode::sendStatus() {
@@ -231,7 +262,7 @@ void DiskNode::onReadyRead() {
 
                 else if (messageFormat.getAction() == ActionMessage::Download) {
                     qDebug() << "El nodo empieza a mandar info para descarga de pdf";
-                    // lógica futura para descarga
+                    searchAndSendPdfBlocks(path,messageFormat.getFileName());
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Check) {

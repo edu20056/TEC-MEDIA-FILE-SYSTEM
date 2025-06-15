@@ -45,6 +45,7 @@ private slots:
     bool storeFile(const QByteArray& data, QString fileName);
     bool reconstructPdf(const QByteArray& pdfData, const QString& fileName);
     void deleteFile(QString const &fileName); 
+    void searchAndSendPdfBlocks(const QString& path, const QString& fileName );
 
 private:
     QTcpSocket *socket;

@@ -125,18 +125,42 @@ void NodeController::onReadyRead() {
             }
             else if (messageFormat.getIndicator() == MessageIndicator::NodeToController) // Incoming from node
             {
-                qDebug() << "Mensaje desde nodo: " + messageFormat.getContent();
-                ActionMessage action = messageFormat.getAction();
-                QByteArray data = messageFormat.getContent();
-                QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
-                for (QTcpSocket* nodo : clientTypes.keys()) {
-                    if (clientTypes.value(nodo).type == ClientType::Gui) {
-                        sendData(nodo, newMessage);
-                        qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
-                        qDebug() << "================================================================================";
+                
+                if (messageFormat.getAction() == ActionMessage::Download) 
+                {
+                    if (messageFormat.getContent().contains("FINISHED"))
+                    {
+                        currentNodeLoaded++;
+                        qDebug() << "NODO LISTO!";
+                        if (currentNodeLoaded == 4)
+                        {
+                            qDebug() << "PDF LISTO PARA RECONSTRUIR";
+                            reconstructPDF(messageFormat.getFileName());
+                            currentNodeLoaded = 0;
+                            incomingDataToDownload.clear();
+                        }
                     }
-                } 
+                    else
+                    {
+                        incomingDataToDownload.insert(messageFormat.getFileName(), messageFormat.getContent());
+                    }
 
+                }
+                
+                else // Check, Delete, AND Upload show generic answer message.
+                {
+                    qDebug() << "Mensaje desde nodo: " + messageFormat.getContent();
+                    ActionMessage action = messageFormat.getAction();
+                    QByteArray data = messageFormat.getContent();
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
+                    for (QTcpSocket* nodo : clientTypes.keys()) {
+                        if (clientTypes.value(nodo).type == ClientType::Gui) {
+                            sendData(nodo, newMessage);
+                            qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                            qDebug() << "================================================================================";
+                        }
+                    } 
+                }
             }
 
         } else {
@@ -290,38 +314,51 @@ QByteArray NodeController::calculateParity(const QByteArray& block1, const QByte
     return parityBlock;
 }
 
-void NodeController::reconstructPDF(QString pdfName) { // pdfName must be obtained by a httpFormat object
+void NodeController::reconstructPDF(QString pdfName) { 
 
     if (pdfName.isEmpty()) {
         qDebug() << "Debes ingresar un nombre de PDF.";
         return;
     }
 
-    QString saveDir = QDir::currentPath() + "/Node";
-    QString finalPDFPath = saveDir + "/" + pdfName + "_RECUPERADO.pdf";
-
-    QFile finalPDF(finalPDFPath);
-    if (!finalPDF.open(QIODevice::WriteOnly)) {
-        qDebug() << "No se pudo crear el PDF recuperado.";
+    if (incomingDataToDownload.isEmpty()) {
+        qDebug() << "No se encontraron bloques de datos para reconstruir en mapa OG";
         return;
     }
 
-    for (int i = 0; i < 3; ++i) {
-        QString partFileName = saveDir + "/" + pdfName + "_" + QString::number(i + 1);
-        QFile partFile(partFileName);
-        if (partFile.open(QIODevice::ReadOnly)) {
-            QByteArray partData = partFile.readAll();
-            finalPDF.write(partData);
-            partFile.close();
+    QMap<int, QByteArray> bloquesOrdenados;
 
-            qDebug() << "Parte" << i + 1 << "agregada:" << partFileName << "(" << partData.size() << "bytes )";
-        } else {
-            qDebug() << "No se pudo abrir" << partFileName;
-            finalPDF.close();
-            return;
+    QString pattern = QString("^%1_(\\d+)$").arg(QRegularExpression::escape(pdfName));
+    QRegularExpression regex(pattern);
+
+    for (auto it = incomingDataToDownload.begin(); it != incomingDataToDownload.end(); ++it) {
+        QRegularExpressionMatch match = regex.match(it.key());
+        if (match.hasMatch()) {
+            int numero = match.captured(1).toInt();
+            bloquesOrdenados[numero] = it.value();
         }
     }
 
-    finalPDF.close();
-    qDebug() << "PDF reconstruido en:" << finalPDFPath;
+    if (bloquesOrdenados.isEmpty()) {
+        qDebug() << "No se encontraron bloques de datos para reconstruir.";
+        return;
+    }
+
+    // Connect Blocks in order
+    QByteArray pdfCompleto;
+    for (auto it = bloquesOrdenados.begin(); it != bloquesOrdenados.end(); ++it) {
+        pdfCompleto.append(it.value());
+    }
+
+    QString rutaSalida = "../Pdf/Download/" + pdfName + ".pdf";
+
+
+    QFile archivo(rutaSalida);
+    if (archivo.open(QIODevice::WriteOnly)) {
+        archivo.write(pdfCompleto);
+        archivo.close();
+        qDebug() << "Archivo PDF reconstruido correctamente en:" << rutaSalida;
+    } else {
+        qDebug() << "No se pudo guardar el archivo PDF.";
+    }
 }

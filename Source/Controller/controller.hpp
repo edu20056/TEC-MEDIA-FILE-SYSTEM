@@ -9,6 +9,7 @@
 #include <QDebug>
 #include <QFile>
 #include <QDir>
+#include <QRegularExpression>
 #include <QDataStream>
 #include "../HTTP/httpFormat.hpp"
 #include "../Config/xmlReader.hpp"
@@ -54,7 +55,8 @@ private:
     int clientNum = 1;
     QHash<QTcpSocket*, ClientIdentificator> clientTypes;
     int currentRaidRow = 0;
-
+    QMap<QString, QByteArray> incomingDataToDownload;
+    int currentNodeLoaded = 0;
 };
 
 #endif
