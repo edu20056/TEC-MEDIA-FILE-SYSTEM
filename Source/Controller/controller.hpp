@@ -37,6 +37,7 @@ public:
     QByteArray calculateParity(const QByteArray& block1, const QByteArray& block2, const QByteArray& block3);
     void uploadBlksIntoNodes(const QByteArray& fileData, const QString& fileName, quint64 blockSize);
     void reconstructPDF(QString pdfName);
+    void reconstructPDFParity(QString pdfName);
 
 signals:
     void dataReceived(QTcpSocket *client, QByteArray &data);
@@ -57,6 +58,7 @@ private:
     int currentRaidRow = 0;
     QMap<QString, QByteArray> incomingDataToDownload;
     int currentNodeLoaded = 0;
+    int connectedNodes = 0;
 };
 
 #endif

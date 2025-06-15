@@ -40,7 +40,9 @@ void NodeController::onReadyRead() {
     {
         if (clientNum <= 4)  // First 4 incoming connections are nodes.
         {
+            connectedNodes++;
             clientTypes[client].type = ClientType::DiskNode;
+            qDebug() << "Nodos conectados" + QString::number(connectedNodes);
         }  
         else
         {
@@ -128,22 +130,59 @@ void NodeController::onReadyRead() {
                 
                 if (messageFormat.getAction() == ActionMessage::Download) 
                 {
-                    if (messageFormat.getContent().contains("FINISHED"))
+                    if (connectedNodes == 4) 
                     {
-                        currentNodeLoaded++;
-                        qDebug() << "NODO LISTO!";
-                        if (currentNodeLoaded == 4)
+                        if (messageFormat.getContent().contains("FINISHED"))
                         {
-                            qDebug() << "PDF LISTO PARA RECONSTRUIR";
-                            reconstructPDF(messageFormat.getFileName());
-                            currentNodeLoaded = 0;
-                            incomingDataToDownload.clear();
+                            currentNodeLoaded++;
+                            qDebug() << "NODO LISTO!";
+                            if (currentNodeLoaded == 4)
+                            {
+                                qDebug() << "PDF LISTO PARA RECONSTRUIR";
+                                reconstructPDF(messageFormat.getFileName());
+                                currentNodeLoaded = 0;
+                                incomingDataToDownload.clear();
+                            }
+                        }
+                        else
+                        {
+                            incomingDataToDownload.insert(messageFormat.getFileName(), messageFormat.getContent());
                         }
                     }
-                    else
+                    else if (connectedNodes == 3) 
                     {
-                        incomingDataToDownload.insert(messageFormat.getFileName(), messageFormat.getContent());
+                        if (messageFormat.getContent().contains("FINISHED"))
+                        {
+                            currentNodeLoaded++;
+                            qDebug() << "NODO LISTO! (paridad)";
+                            if (currentNodeLoaded == 3)
+                            {
+                                qDebug() << "PDF LISTO PARA RECONSTRUIR (paridad)";
+                                reconstructPDFParity(messageFormat.getFileName());
+                                currentNodeLoaded = 0;
+                                incomingDataToDownload.clear();
+                            }
+                        }
+                        else
+                        {
+                            incomingDataToDownload.insert(messageFormat.getFileName(), messageFormat.getContent());
+                        }
                     }
+                    else // More than 1 node are desconected, not able to work propertly
+                    {
+                        ActionMessage action = messageFormat.getAction();
+                        QByteArray data = "Not enough nodes are connected!";
+                        QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
+                        for (QTcpSocket* nodo : clientTypes.keys()) {
+                            if (clientTypes.value(nodo).type == ClientType::Gui) {
+                                sendData(nodo, newMessage);
+                            }
+                        } 
+                        qDebug() << "Not enought nodes are connected to work propertly!";
+                        
+                    }
+                    
+
 
                 }
                 
@@ -175,7 +214,10 @@ void NodeController::onDisconnected(){
     if (!client) return;
     
     clients.removeAll(client);
+    clientTypes.remove(client);
+    connectedNodes--;
     qInfo() << "Client disconnected:" << client->peerAddress().toString();
+    qDebug() << "Nodos conectados" + QString::number(connectedNodes);
 }
 
 void NodeController::uploadBlksIntoNodes(const QByteArray& fileData, const QString& fileName, quint64 blockSize) {
@@ -352,6 +394,298 @@ void NodeController::reconstructPDF(QString pdfName) {
 
     QString rutaSalida = "../Pdf/Download/" + pdfName + ".pdf";
 
+
+    QFile archivo(rutaSalida);
+    if (archivo.open(QIODevice::WriteOnly)) {
+        archivo.write(pdfCompleto);
+        archivo.close();
+        qDebug() << "Archivo PDF reconstruido correctamente en:" << rutaSalida;
+    } else {
+        qDebug() << "No se pudo guardar el archivo PDF.";
+    }
+}
+
+void NodeController::reconstructPDFParity(QString pdfName) { 
+
+    QByteArray pdfCompleto;
+    int nodeDeleted = 0; // This variable will tell which node was deleted from 1 to 4
+    int iteracions = incomingDataToDownload.size() / 3;
+    if (pdfName.isEmpty()) {
+        qDebug() << "Debes ingresar un nombre de PDF.";
+        return;
+    }
+
+    if (incomingDataToDownload.isEmpty()) {
+        qDebug() << "No se encontraron bloques de datos para reconstruir en mapa OG";
+        return;
+    }
+
+
+    // Logic to detect dead diskNode
+    if (!incomingDataToDownload.contains(pdfName + "_0")) {
+        nodeDeleted = 1;
+    }
+    else if (!incomingDataToDownload.contains(pdfName + "_1")) {
+        nodeDeleted = 2;
+    }
+    else if (!incomingDataToDownload.contains(pdfName + "_2")) {
+        nodeDeleted = 3;
+    }
+    else if (!incomingDataToDownload.contains(pdfName + "_p1")) {
+        nodeDeleted = 4;
+    }
+    else {
+        nodeDeleted = 0;  // None dead... weird 
+    }
+    qDebug() << "Nodo:" << nodeDeleted;
+
+
+
+    // NOSE SE FUNCIONA CHATY HIZO ESTO
+
+    QMap<int, QByteArray> bloquesOrdenados;
+    QStringList listaDeClaves;
+    int blockCounter = 0;
+    
+    for (int fila = 0; fila < iteracions; ++fila) {
+        int parityDisk = 4 - (fila % 4); // Disco de paridad rotativo (1-4)
+        qDebug() << "--- Procesando fila:" << fila + 1 << "| Disco de paridad:" << parityDisk;
+    
+        for (int disco = 1; disco <= 4; ++disco) {
+            if (disco == nodeDeleted) {
+                qDebug() << "  Disco" << disco << "fallado (nodeDeleted). Omitiendo.";
+                continue;
+            }
+    
+            QString key;
+            if (disco == parityDisk) {
+                key = pdfName + "_p" + QString::number(fila + 1); // Bloque de paridad
+                qDebug() << "  Disco" << disco << "es paridad. Clave generada:" << key;
+            } else {
+                // Cálculo del índice de datos (sin +1 para empezar en 0)
+                int dataIndex = fila * 3;
+                if (disco < parityDisk) {
+                    dataIndex += (disco - 1);
+                } else {
+                    dataIndex += (disco - 2);
+                }
+                key = pdfName + "_" + QString::number(dataIndex); // SIN +1 aquí
+                qDebug() << "  Disco" << disco << "es dato. Clave generada:" << key;
+            }
+    
+            if (incomingDataToDownload.contains(key)) {
+                bloquesOrdenados[blockCounter] = incomingDataToDownload[key];
+                listaDeClaves.append(key);
+                qDebug() << "  -> Añadido a bloquesOrdenados[" << blockCounter << "]";
+                blockCounter++;
+            } else {
+                qDebug() << "  -> ERROR: Clave" << key << "no encontrada en incomingDataToDownload.";
+            }
+        }
+    }
+    
+    // Al final, mostrar la lista de claves en orden
+    qDebug() << "=== Orden final de claves en bloquesOrdenados ===";
+    for (int i = 0; i < listaDeClaves.size(); ++i) {
+        qDebug() << i << ":" << listaDeClaves[i];
+    }
+    
+    
+    switch (nodeDeleted)
+    {
+        case 1: {
+            int avoidRowParid = 3;
+            int parityLocation = 2;
+            bool alreadyAddedParity = false;
+            for (int i = 0; i < iteracions; i++)
+            {
+                QByteArray rowData;
+                for (int j = 0; j < 3; j++)
+                {
+                    int globalIndex = i * 3 + j;
+        
+                    if (i != avoidRowParid)
+                    {
+                        if (globalIndex != parityLocation)
+                        {
+                            if (!alreadyAddedParity)
+                            {
+                                rowData += calculateParity(
+                                    bloquesOrdenados[globalIndex],
+                                    bloquesOrdenados[globalIndex + 1],
+                                    bloquesOrdenados[globalIndex + 2]);
+                                alreadyAddedParity = true;
+                                qDebug() << "INDICE: " << globalIndex;
+                                qDebug() << "Se adiciona caso 0: " + listaDeClaves[globalIndex];
+
+                                rowData += bloquesOrdenados[globalIndex];
+                            }
+    
+                            else
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "INDICE: " << globalIndex;
+                                qDebug() << "Se adiciona caso 1: " + listaDeClaves[globalIndex];
+                            
+                            }
+                        }
+                        else
+                        {
+                            parityLocation += 2;
+                        }
+
+                    }
+                    else
+                    {
+                        rowData += bloquesOrdenados[globalIndex];
+                        qDebug() << "INDICE: " << globalIndex;
+                        qDebug() << "Se adiciona caso 2: " + listaDeClaves[globalIndex];
+                    }
+                }
+        
+                avoidRowParid += 4;
+                parityLocation += 8;
+                alreadyAddedParity = false;
+                pdfCompleto += rowData;
+                rowData.clear();
+                
+                qDebug() << "Reinicio de columnas!!";
+            }
+            break;
+        }
+        case 2:{
+            int avoidRowParid = 2;
+            int parityLocation = 2;
+            int parityAdvance = 0;
+            int actualTypeRow = 0;
+            QByteArray rowData;
+            for (int i = 0; i < iteracions; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    int globalIndex = i * 3 + j;
+                    if (i != avoidRowParid)
+                    {
+                        if (globalIndex != parityLocation) // Not parity Index
+                        {
+                            if (actualTypeRow == 0) // First row type data1,data2,parity
+                            {
+                                if (j == 0)
+                                {
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 1";
+                                }
+                                else if (j == 1)
+                                {
+                                    rowData += calculateParity(
+                                        bloquesOrdenados[globalIndex - 1],
+                                        bloquesOrdenados[globalIndex ],
+                                        bloquesOrdenados[globalIndex + 1]);
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 2";
+
+                                }
+                                else
+                                {
+                                    qDebug() << "Esta row esta lista: " << parityAdvance;
+                                }
+                                
+                            }
+                            else if (actualTypeRow == 1)  // Second row type data1,parity,data2
+                            {
+                                if (j == 0)
+                                {
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 3";
+                                }
+                                else if (j == 2)
+                                {
+                                    rowData += calculateParity(
+                                        bloquesOrdenados[globalIndex - 1],
+                                        bloquesOrdenados[globalIndex - 2],
+                                        bloquesOrdenados[globalIndex ]);
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 4";
+                                }
+                                else
+                                {
+                                    qDebug() << "Esta row esta lista: " << parityAdvance;
+                                }
+
+                            }
+                            else if (actualTypeRow == 2) // Third row type parity,data1,data2
+                            {
+                                if (j == 1)
+                                {
+                                    rowData += calculateParity(
+                                        bloquesOrdenados[globalIndex - 1],
+                                        bloquesOrdenados[globalIndex ],
+                                        bloquesOrdenados[globalIndex + 1]);
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 5";
+                                }
+                                else if (j == 2)
+                                {
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 6";
+                                }                                
+                                else
+                                {
+                                    qDebug() << "Esta row esta lista: " << parityAdvance;
+                                }
+                                
+                            }
+                        }
+                        else
+                        {
+                            if (parityAdvance == 0)
+                            {
+                                parityLocation += 2;
+                                parityAdvance++;
+                            }
+                            else if (parityAdvance == 1)
+                            {
+                                parityLocation += 5;
+                                parityAdvance++;
+                            }
+                            else if (parityAdvance == 2)
+                            {
+                                parityLocation += 5;
+                                parityAdvance = 0;
+                            }
+                            qDebug() << "IndiceGlobal Skipeado: " << globalIndex;
+                            
+                        }
+                    }
+                    else
+                    {
+                        rowData += bloquesOrdenados[globalIndex];
+                    }
+                    
+                }
+
+                if (actualTypeRow == 2)
+                {
+                    actualTypeRow = 0;
+                }
+                else
+                {
+                    actualTypeRow++;
+                }
+
+                avoidRowParid += 4;
+                pdfCompleto += rowData;
+                rowData.clear();
+                qDebug() << "Reinicio de columnas!!";
+            }
+            break;
+        }
+        
+        default:
+            break;
+    }
+
+    QString rutaSalida = "../Pdf/Download/" + pdfName + ".pdf";
 
     QFile archivo(rutaSalida);
     if (archivo.open(QIODevice::WriteOnly)) {
