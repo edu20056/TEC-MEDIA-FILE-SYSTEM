@@ -6,6 +6,8 @@
 #include <QDebug>
 #include <QTcpSocket>
 #include <QDir>
+#include <QStringList>
+#include <QDataStream>
 #include "../HTTP/httpFormat.hpp"
 #include "../Config/xmlReader.hpp"
 
@@ -32,12 +34,18 @@ private slots:
     void onDisconnected();
     void onError(QAbstractSocket::SocketError error);
 
+    QByteArray buildMessage(MessageIndicator indicator, const QString &fileName,
+        ActionMessage action, const QByteArray &data);
+    void sendStatus();
+
     void nodeInfo() const;
     void inputNotification(httpFormat const &messageData, QString fileName) const;
 
     bool initPath();
     bool storeFile(const QByteArray& data, QString fileName);
     bool reconstructPdf(const QByteArray& pdfData, const QString& fileName);
+    void deleteFile(QString const &fileName); 
+    void searchAndSendPdfBlocks(const QString& path, const QString& fileName );
 
 private:
     QTcpSocket *socket;
@@ -45,6 +53,7 @@ private:
     quint16 nodeID;
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
+    QStringList fileNamesAdded;
 };
 
 #endif

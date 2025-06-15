@@ -112,6 +112,7 @@ $(CONTROLLER_OUT) $(GUI_OUT) $(NODE_OUT):
 
 clean:
 	rm -rf Build
+	rm -rf Node/Core
 	rm -f TECMFS-CTRL TECMFS-GUI TECMFS-NODE
 
 .PHONY: all clean TECMFS-CTRL TECMFS-GUI TECMFS-NODE

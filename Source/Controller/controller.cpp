@@ -13,8 +13,7 @@ NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : Q
 
 // ======================= CONNECTION FUNCTIONS =====================================
 
-void NodeController::incomingConnection(qintptr socketDescriptor){
-
+void NodeController::incomingConnection(qintptr socketDescriptor) {
     QTcpSocket *client = new QTcpSocket(this);
     client->setSocketDescriptor(socketDescriptor);
     
@@ -23,6 +22,10 @@ void NodeController::incomingConnection(qintptr socketDescriptor){
     connect(client, &QTcpSocket::disconnected, client, &QTcpSocket::deleteLater);
 
     clients.append(client);
+    ClientIdentificator identificator;
+    identificator.id = 0;
+    identificator.type = ClientType::Unknown;
+    clientTypes.insert(client, identificator);  // <- nuevo
     qInfo() << "New client connected:" << client->peerAddress().toString();
 }
 
@@ -33,6 +36,19 @@ void NodeController::onReadyRead() {
     // Acumulate data on buffer.
     buffers[client] += client->readAll();
 
+    if (clientTypes[client].type == ClientType::Unknown) 
+    {
+        if (clientNum <= 4)  // First 4 incoming connections are nodes.
+        {
+            clientTypes[client].type = ClientType::DiskNode;
+        }  
+        else
+        {
+            clientTypes[client].type = ClientType::Gui;
+        }
+        clientTypes[client].id = clientNum;
+        clientNum++;
+    }
     // Procesar mensajes completos
     while (buffers[client].size() >= 4) { // We asume that the first 4 bytes are for message size
         // Read message size (first 4 bytes)
@@ -51,37 +67,55 @@ void NodeController::onReadyRead() {
             emit dataReceived(client, completeMessage);
             MessageIndicator indicator = messageFormat.getIndicator();
             qDebug() << "Received from client: "<< messageFormat.getFileName() << "Indicator message:" << messageFormat.messageIndicatorToString(indicator);
-            qDebug() << "Primeros 200 bytes (hex):" << messageFormat.getContent().left(200).toHex(' ');  // ESpace between bytes
-            
+            qDebug() << "================================================================================";
             // Lecture for nodes logic begins here
+            if (messageFormat.getAction() == ActionMessage::MemoryStatus)
+            {
+                break; // Wait for more data
+            }
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
-                if (messageFormat.getAction() == ActionMessage::Upload)
+                if (messageFormat.getAction() == ActionMessage::Upload) {
+                    
+                    uploadBlksIntoNodes(messageFormat.getContent(), messageFormat.getFileName(), blockSize);
+                }
+                else if (messageFormat.getAction() == ActionMessage::Erase)
                 {
-                    qDebug() << "Se cargo pdf :D";
+                    qDebug() << "Se intentara borrar: " + messageFormat.getFileName();
                     ActionMessage action = messageFormat.getAction();
                     QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
                     for (QTcpSocket* nodo : clients) {
                         if (nodo != client) { // avoid to resend message 
                             sendData(nodo, newMessage);
                             qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                            qDebug() << "================================================================================";
                         }
-                    }            
-                    // splitAndSave
-                }
-                else if (messageFormat.getAction() == ActionMessage::Erase)
-                {
-                    qDebug() << "Se borro un pdf";
-                    // for nodo in nodos, enviar mensaje de borrar con messageFormat.getFileName()
+                    }  
                 }
                 else if (messageFormat.getAction() == ActionMessage::Check)
                 {
-                    qDebug() << "Se hizo check de existencia de pdf";
-                    // for pdf in pdfList, revisar si existe alguno subido con messageFormat.getFileName()
+                    qDebug() << "Revisa el estado de: " +  messageFormat.getFileName();
+                    ActionMessage action = messageFormat.getAction();
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
+                    for (QTcpSocket* nodo : clients) {
+                        if (nodo != client) { // avoid to resend message 
+                            sendData(nodo, newMessage);
+                            qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                            qDebug() << "================================================================================";
+                        }
+                    }  
                 }
                 else if (messageFormat.getAction() == ActionMessage::Download) 
                 {
-                    qDebug() << "Se descarga un pdf";
-                    // for nodo in nodos, relizar reconstruccion de pdf, TODO: ver donde se debe guardar
+                    qDebug() << "Se intenta descargar: " +  messageFormat.getFileName();
+                    ActionMessage action = messageFormat.getAction();
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToNode,messageFormat.getFileName(),action, messageFormat.getContent());
+                    for (QTcpSocket* nodo : clients) {
+                        if (nodo != client) { // avoid to resend message 
+                            sendData(nodo, newMessage);
+                            qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                            qDebug() << "================================================================================";
+                        }
+                    }  
                 }
                 else
                 {
@@ -91,7 +125,42 @@ void NodeController::onReadyRead() {
             }
             else if (messageFormat.getIndicator() == MessageIndicator::NodeToController) // Incoming from node
             {
-                qDebug() << "Mensaje de nodo";
+                
+                if (messageFormat.getAction() == ActionMessage::Download) 
+                {
+                    if (messageFormat.getContent().contains("FINISHED"))
+                    {
+                        currentNodeLoaded++;
+                        qDebug() << "NODO LISTO!";
+                        if (currentNodeLoaded == 4)
+                        {
+                            qDebug() << "PDF LISTO PARA RECONSTRUIR";
+                            reconstructPDF(messageFormat.getFileName());
+                            currentNodeLoaded = 0;
+                            incomingDataToDownload.clear();
+                        }
+                    }
+                    else
+                    {
+                        incomingDataToDownload.insert(messageFormat.getFileName(), messageFormat.getContent());
+                    }
+
+                }
+                
+                else // Check, Delete, AND Upload show generic answer message.
+                {
+                    qDebug() << "Mensaje desde nodo: " + messageFormat.getContent();
+                    ActionMessage action = messageFormat.getAction();
+                    QByteArray data = messageFormat.getContent();
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
+                    for (QTcpSocket* nodo : clientTypes.keys()) {
+                        if (clientTypes.value(nodo).type == ClientType::Gui) {
+                            sendData(nodo, newMessage);
+                            qDebug() << "Enviado a nodo" << nodo->peerAddress().toString();
+                            qDebug() << "================================================================================";
+                        }
+                    } 
+                }
             }
 
         } else {
@@ -109,7 +178,68 @@ void NodeController::onDisconnected(){
     qInfo() << "Client disconnected:" << client->peerAddress().toString();
 }
 
-// ========================= PDF SYSTEM FUNCTIONS =========================================
+void NodeController::uploadBlksIntoNodes(const QByteArray& fileData, const QString& fileName, quint64 blockSize) {
+    QList<QByteArray> blocks = splitIntoBlocks(fileData, blockSize);
+
+    QMap<int, QTcpSocket*> idToSocket;
+    for (QTcpSocket* socket : clientTypes.keys()) {
+        if (clientTypes[socket].type == ClientType::DiskNode) {
+            idToSocket[clientTypes[socket].id] = socket;
+        }
+    }
+
+    QList<QTcpSocket*> nodeSockets = idToSocket.values();
+    int numDisks = nodeSockets.size();
+
+    if (numDisks < 4) {
+        qWarning() << "!ERROR: NOT ENOUGH DISKS";
+        return;
+    }
+
+    int groupSize = numDisks - 1;
+    int totalGroups = blocks.size() / groupSize;
+    int dataBlockIndex = 0;
+    int parityCount = 1;
+
+    for (int g = 0; g < totalGroups; ++g) {
+        QList<QByteArray> dataBlocks;
+        
+        for (int i = 0; i < groupSize; ++i) {
+            dataBlocks.append(blocks[g * groupSize + i]);
+        }
+
+        QByteArray parityBlock = calculateParity(dataBlocks[0], dataBlocks[1], dataBlocks[2]);
+
+        int parityIndex = (numDisks - 1 - ((currentRaidRow + g) % numDisks));
+        int dataIndex = 0;
+
+        for (int d = 0; d < numDisks; ++d) {
+            QByteArray blockToSend;
+            QString blockName;
+
+            if (d == parityIndex) {
+                blockToSend = parityBlock;
+                blockName = QString("%1_p%2").arg(fileName).arg(parityCount++);
+            } else {
+                blockToSend = dataBlocks[dataIndex++];
+                blockName = QString("%1_%2").arg(fileName).arg(dataBlockIndex++);
+            }
+
+            ActionMessage action = ActionMessage::Upload;
+            QByteArray formattedMessage = messageFormat.createFormat(
+                MessageIndicator::ControllerToNode,
+                blockName,
+                action,
+                blockToSend
+            );
+
+            sendData(nodeSockets[d], formattedMessage);
+            qDebug() << "BLK" << blockName << "SENT TO NODE ID" << (d + 1);
+        }
+    }
+
+    currentRaidRow += totalGroups;
+}
 
 void NodeController::sendData(QTcpSocket *client, const QByteArray &data) {
     if (!client || !client->isWritable()) {
@@ -137,84 +267,98 @@ void NodeController::sendData(QTcpSocket *client, const QByteArray &data) {
     }
 }
 
-void NodeController::splitAndSavePDF(){
-    QFile file("Source");
-    if (!file.open(QIODevice::ReadOnly)) {
-        qDebug() << "No se pudo abrir el archivo PDF.";
-        return;
+// ========================= PDF SYSTEM FUNCTIONS =========================================
+
+QList<QByteArray> NodeController::splitIntoBlocks(const QByteArray& data, quint64 blockSize) {
+    
+    QList<QByteArray> blocks;
+    quint64 totalSize = data.size();
+    quint64 offset = 0;
+
+    while (offset < totalSize) {
+        QByteArray block = data.mid(offset, blockSize);
+
+        if (static_cast<quint64>(block.size()) < blockSize) {
+            block.append(QByteArray(blockSize - block.size(), '\0'));
+        }
+
+        blocks.append(block);
+        offset += blockSize;
     }
 
-    QByteArray data = file.readAll();
-    file.close();
-
-    if (data.isEmpty()) {
-        qDebug() << "El archivo PDF está vacío";
-        return;
-    }
-
-    qint64 totalSize = data.size();
-    qint64 partSize = totalSize / 3;
-    qint64 remainder = totalSize % 3;
-
-    QString baseName = QFileInfo("Source").baseName();
-    QString saveDir = QDir::currentPath() + "/Node";
-
-    if (!QDir(saveDir).exists()) {
-        QDir().mkdir(saveDir);
-    }
-
-    qint64 position = 0;
-    for (int i = 0; i < 3; ++i) {
-        QString partFileName = saveDir + "/" + baseName + "_" + QString::number(i + 1);
-        QFile partFile(partFileName);
-        if (partFile.open(QIODevice::WriteOnly)) {
-            qint64 bytesToWrite = partSize;
-            if (i == 2) bytesToWrite += remainder;
-
-            partFile.write(data.constData() + position, bytesToWrite);
-            partFile.close();
-
-            qDebug() << "Parte" << i + 1 << "guardada:" << partFileName << "(" << bytesToWrite << "bytes )";
-
-            position += bytesToWrite;
-        } else {
-            qDebug() << "No se pudo guardar la parte" << i + 1;
+    int remainder = blocks.size() % 3;
+    if (remainder != 0) {
+        int blocksToAdd = 3 - remainder;
+        for (int i = 0; i < blocksToAdd; ++i) {
+            blocks.append(QByteArray(blockSize, '\0'));
         }
     }
+
+    return blocks;
 }
 
-void NodeController::reconstructPDF(QString pdfName) { // pdfName must be obtained by a httpFormat object
+QByteArray NodeController::calculateParity(const QByteArray& block1, const QByteArray& block2, const QByteArray& block3) {
+
+    if (!(block1.size() == block2.size() && block2.size() == block3.size())) {
+        qWarning() << "!ERROR : Something wrong with block size";
+        return QByteArray();
+    }
+
+    int blockSize = block1.size();
+    QByteArray parityBlock(blockSize, '\0');
+
+    for (int i = 0; i < blockSize; ++i) {
+        parityBlock[i] = block1[i] ^ block2[i] ^ block3[i];
+    }
+
+    return parityBlock;
+}
+
+void NodeController::reconstructPDF(QString pdfName) { 
 
     if (pdfName.isEmpty()) {
         qDebug() << "Debes ingresar un nombre de PDF.";
         return;
     }
 
-    QString saveDir = QDir::currentPath() + "/Node";
-    QString finalPDFPath = saveDir + "/" + pdfName + "_RECUPERADO.pdf";
-
-    QFile finalPDF(finalPDFPath);
-    if (!finalPDF.open(QIODevice::WriteOnly)) {
-        qDebug() << "No se pudo crear el PDF recuperado.";
+    if (incomingDataToDownload.isEmpty()) {
+        qDebug() << "No se encontraron bloques de datos para reconstruir en mapa OG";
         return;
     }
 
-    for (int i = 0; i < 3; ++i) {
-        QString partFileName = saveDir + "/" + pdfName + "_" + QString::number(i + 1);
-        QFile partFile(partFileName);
-        if (partFile.open(QIODevice::ReadOnly)) {
-            QByteArray partData = partFile.readAll();
-            finalPDF.write(partData);
-            partFile.close();
+    QMap<int, QByteArray> bloquesOrdenados;
 
-            qDebug() << "Parte" << i + 1 << "agregada:" << partFileName << "(" << partData.size() << "bytes )";
-        } else {
-            qDebug() << "No se pudo abrir" << partFileName;
-            finalPDF.close();
-            return;
+    QString pattern = QString("^%1_(\\d+)$").arg(QRegularExpression::escape(pdfName));
+    QRegularExpression regex(pattern);
+
+    for (auto it = incomingDataToDownload.begin(); it != incomingDataToDownload.end(); ++it) {
+        QRegularExpressionMatch match = regex.match(it.key());
+        if (match.hasMatch()) {
+            int numero = match.captured(1).toInt();
+            bloquesOrdenados[numero] = it.value();
         }
     }
 
-    finalPDF.close();
-    qDebug() << "PDF reconstruido en:" << finalPDFPath;
+    if (bloquesOrdenados.isEmpty()) {
+        qDebug() << "No se encontraron bloques de datos para reconstruir.";
+        return;
+    }
+
+    // Connect Blocks in order
+    QByteArray pdfCompleto;
+    for (auto it = bloquesOrdenados.begin(); it != bloquesOrdenados.end(); ++it) {
+        pdfCompleto.append(it.value());
+    }
+
+    QString rutaSalida = "../Pdf/Download/" + pdfName + ".pdf";
+
+
+    QFile archivo(rutaSalida);
+    if (archivo.open(QIODevice::WriteOnly)) {
+        archivo.write(pdfCompleto);
+        archivo.close();
+        qDebug() << "Archivo PDF reconstruido correctamente en:" << rutaSalida;
+    } else {
+        qDebug() << "No se pudo guardar el archivo PDF.";
+    }
 }

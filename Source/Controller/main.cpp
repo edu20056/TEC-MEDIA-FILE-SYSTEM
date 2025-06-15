@@ -13,8 +13,8 @@ int main(int argc, char *argv[]){
 
     QString portStr = configRead(xmlPath, xmlTag::ControllerPort);
     quint16 port = portStr.toUShort();
-    QString blockSize = configRead(xmlPath,xmlTag::TotalSpace);
-    quint64 size = 1000000 * blockSize.toUShort();  
+    QString blockSize = configRead(xmlPath,xmlTag::BlockSize);
+    quint64 size = 1054 * blockSize.toUShort();  
 
     NodeController server(nullptr, port, size);
 

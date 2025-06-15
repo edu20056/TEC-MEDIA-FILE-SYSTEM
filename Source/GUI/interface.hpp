@@ -27,6 +27,7 @@ signals:
 
 private slots:
 
+    void onReadyRead();
     void erasePDF(); // erase
     void UploadPDF(); // upload
     void Download(); // download
@@ -43,6 +44,7 @@ private:
     QPushButton *btnDownload;
     QPushButton *btnUpload;
     QLineEdit *lineEditPDFName;
+    QHash<QTcpSocket*, QByteArray> buffers; // To receive messages
 };
 
 #endif
