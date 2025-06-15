@@ -680,6 +680,190 @@ void NodeController::reconstructPDFParity(QString pdfName) {
             }
             break;
         }
+
+        case 3:{
+            int avoidRowParid = 1;
+            int parityLocation = 2;
+            int parityAdvance = 0;
+            int actualTypeRow = 0;
+            QByteArray rowData;
+            for (int i = 0; i < iteracions; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    int globalIndex = i * 3 + j;
+                    if (i != avoidRowParid)
+                    {
+                        if (globalIndex != parityLocation) // Not parity Index
+                        {
+                            if (actualTypeRow == 0) // First row type data1,data2,parity
+                            {
+                                if (j == 0)
+                                {
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 1";
+                                }
+                                else if (j == 1)
+                                {
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    rowData += calculateParity(
+                                        bloquesOrdenados[globalIndex - 1],
+                                        bloquesOrdenados[globalIndex ],
+                                        bloquesOrdenados[globalIndex + 1]);
+                                    qDebug() << "Avence 2";
+
+                                }
+                                else
+                                {
+                                    qDebug() << "Esta row esta lista: " << parityAdvance;
+                                }
+                                
+                            }
+                            else if (actualTypeRow == 1)  // Second row type data1,parity,data2
+                            {
+                                if (j == 0)
+                                {
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 3";
+                                }
+                                else if (j == 2)
+                                {
+                                    rowData += calculateParity(
+                                        bloquesOrdenados[globalIndex - 1],
+                                        bloquesOrdenados[globalIndex - 2],
+                                        bloquesOrdenados[globalIndex ]);
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 4";
+                                }
+                                else
+                                {
+                                    qDebug() << "Esta row esta lista: " << parityAdvance;
+                                }
+
+                            }
+                            else if (actualTypeRow == 2) // Third row type parity,data1,data2
+                            {
+                                if (j == 1)
+                                {
+                                    rowData += calculateParity(
+                                        bloquesOrdenados[globalIndex - 1],
+                                        bloquesOrdenados[globalIndex ],
+                                        bloquesOrdenados[globalIndex + 1]);
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 5";
+                                }
+                                else if (j == 2)
+                                {
+                                    rowData += bloquesOrdenados[globalIndex];
+                                    qDebug() << "Avence 6";
+                                }                                
+                                else
+                                {
+                                    qDebug() << "Esta row esta lista: " << parityAdvance;
+                                }
+                                
+                            }
+                        }
+                        else
+                        {
+                            if (parityAdvance == 0)
+                            {
+                                parityLocation += 5;
+                                parityAdvance++;
+                            }
+                            else if (parityAdvance == 1)
+                            {
+                                parityLocation += 2;
+                                parityAdvance++;
+                            }
+                            else if (parityAdvance == 2)
+                            {
+                                parityLocation += 5;
+                                parityAdvance = 0;
+                            }
+                            qDebug() << "IndiceGlobal Skipeado: " << globalIndex;
+                            
+                        }
+                    }
+                    else
+                    {
+                        rowData += bloquesOrdenados[globalIndex];
+                    }
+                    
+                }
+
+                if (actualTypeRow == 2)
+                {
+                    actualTypeRow = 0;
+                }
+                else
+                {
+                    actualTypeRow++;
+                }
+
+                avoidRowParid += 4;
+                pdfCompleto += rowData;
+                rowData.clear();
+                qDebug() << "Reinicio de columnas!!";
+            }
+            break;
+        }
+        case 4: {
+            int avoidRowParid = 0;
+            int parityLocation = 5;
+            for (int i = 0; i < iteracions; i++)
+            {
+                QByteArray rowData;
+                for (int j = 0; j < 3; j++)
+                {
+                    int globalIndex = i * 3 + j;
+        
+                    if (i != avoidRowParid)
+                    {
+                        if (globalIndex != parityLocation)
+                        {
+                            if (j == 2)
+                            {
+                                rowData += calculateParity(
+                                    bloquesOrdenados[globalIndex - 1],
+                                    bloquesOrdenados[globalIndex - 2],
+                                    bloquesOrdenados[globalIndex]);
+                                qDebug() << "INDICE: " << globalIndex;
+                                qDebug() << "Se adiciona caso 0: " + listaDeClaves[globalIndex];
+
+                            }
+    
+                            else
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "INDICE: " << globalIndex;
+                                qDebug() << "Se adiciona caso 1: " + listaDeClaves[globalIndex];
+                            
+                            }
+                        }
+                        else
+                        {
+                            parityLocation += 2;
+                        }
+
+                    }
+                    else
+                    {
+                        rowData += bloquesOrdenados[globalIndex];
+                        qDebug() << "INDICE: " << globalIndex;
+                        qDebug() << "Se adiciona caso 2: " + listaDeClaves[globalIndex];
+                    }
+                }
+        
+                avoidRowParid += 4;
+                parityLocation += 8;
+                pdfCompleto += rowData;
+                rowData.clear();
+                
+                qDebug() << "Reinicio de columnas!!";
+            }
+            break;
+        }
         
         default:
             break;
