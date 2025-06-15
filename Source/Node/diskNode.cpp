@@ -116,6 +116,23 @@ bool DiskNode::reconstructPdf(const QByteArray& pdfData, const QString& fileName
     return bytesWritten == pdfData.size();
 }
 
+void DiskNode::deleteFile(QString const &fileName) {
+
+    QDir dir(path);
+
+    QStringList files = dir.entryList(QDir::Files | QDir::NoDotAndDotDot);
+
+    for (const QString &baseName : files) {
+        QString prefix = baseName.section('_', 0, 0);
+
+        if (prefix == fileName) {
+            QString filePath = dir.absoluteFilePath(baseName);
+            QFile file(filePath);
+            file.remove();
+        }
+    }
+}
+
 // ================================= AUXILIARY =====================================  
 
 QByteArray DiskNode::buildMessage(MessageIndicator indicator, const QString &fileName,
@@ -205,8 +222,8 @@ void DiskNode::onReadyRead() {
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Erase) {
-                    qDebug() << "Se intenta borrar un pdf: " + fileName;
-                    // lógica real de borrado aquí...
+
+                    deleteFile(fileName); 
 
                     data = "Se borra el pdf: " + fileName.toUtf8();
                     sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data));
