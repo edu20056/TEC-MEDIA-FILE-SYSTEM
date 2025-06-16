@@ -495,57 +495,81 @@ void NodeController::reconstructPDFParity(QString pdfName) {
     {
         case 1: {
             int avoidRowParid = 3;
-            int parityLocation = 2;
-            bool alreadyAddedParity = false;
+            int rowType = 1;
+            bool changed = false;
+            // 1 = block,block,parity
+            // 2 = block,parity,block
+            // 3 = parity,block,block
             for (int i = 0; i < iteracions; i++)
             {
                 QByteArray rowData;
                 for (int j = 0; j < 3; j++)
                 {
                     int globalIndex = i * 3 + j;
-        
+                    qDebug() << "Global: " << globalIndex << " AvoidParid: " << avoidRowParid ;
                     if (i != avoidRowParid)
                     {
-                        if (globalIndex != parityLocation)
+                        if (j == 0) //firs you add the newparity
                         {
-                            if (!alreadyAddedParity)
+                            rowData += calculateParity(
+                                bloquesOrdenados[globalIndex ],
+                                bloquesOrdenados[globalIndex + 1],
+                                bloquesOrdenados[globalIndex + 2]);
+                            if (rowType == 1 || rowType == 2)
                             {
-                                rowData += calculateParity(
-                                    bloquesOrdenados[globalIndex],
-                                    bloquesOrdenados[globalIndex + 1],
-                                    bloquesOrdenados[globalIndex + 2]);
-                                alreadyAddedParity = true;
-                                qDebug() << "INDICE: " << globalIndex;
-                                qDebug() << "Se adiciona caso 0: " + listaDeClaves[globalIndex];
-
                                 rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 2: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
                             }
-    
                             else
                             {
-                                rowData += bloquesOrdenados[globalIndex];
-                                qDebug() << "INDICE: " << globalIndex;
-                                qDebug() << "Se adiciona caso 1: " + listaDeClaves[globalIndex];
-                            
+                                qDebug() << "Se adiciona caso 1: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
                             }
                         }
-                        else
+                        else if (j == 1)
                         {
-                            parityLocation += 2;
+                            if (rowType == 1 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 3: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+                        }
+                        else if (j == 2)
+                        {
+                            if (rowType == 2 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 4: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
                         }
 
                     }
                     else
                     {
                         rowData += bloquesOrdenados[globalIndex];
-                        qDebug() << "INDICE: " << globalIndex;
-                        qDebug() << "Se adiciona caso 2: " + listaDeClaves[globalIndex];
+                        qDebug() << "Se adiciona caso 5: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                        if (j == 2)
+                        {
+                            avoidRowParid += 4;
+                            changed = true;
+                        }
                     }
                 }
-        
-                avoidRowParid += 4;
-                parityLocation += 8;
-                alreadyAddedParity = false;
+                if (!changed)
+                {
+                    if (rowType == 3)
+                    {
+                        rowType = 1;
+                    }
+                    else
+                    {
+                        rowType++;
+                    }
+                }
+                else
+                {
+                    changed = false;
+                }
+
                 pdfCompleto += rowData;
                 rowData.clear();
                 
@@ -810,53 +834,74 @@ void NodeController::reconstructPDFParity(QString pdfName) {
         }
         case 4: {
             int avoidRowParid = 0;
-            int parityLocation = 5;
+            int rowType = 1;
+            bool changed = false;
+            // 1 = block,block,parity
+            // 2 = block,parity,block
+            // 3 = parity,block,block
             for (int i = 0; i < iteracions; i++)
             {
                 QByteArray rowData;
                 for (int j = 0; j < 3; j++)
                 {
                     int globalIndex = i * 3 + j;
-        
+                    qDebug() << "Global: " << globalIndex << " AvoidParid: " << avoidRowParid ;
                     if (i != avoidRowParid)
                     {
-                        if (globalIndex != parityLocation)
+                        if (j == 0) //firs you add the newparity
                         {
-                            if (j == 2)
-                            {
-                                rowData += calculateParity(
-                                    bloquesOrdenados[globalIndex - 1],
-                                    bloquesOrdenados[globalIndex - 2],
-                                    bloquesOrdenados[globalIndex]);
-                                qDebug() << "INDICE: " << globalIndex;
-                                qDebug() << "Se adiciona caso 0: " + listaDeClaves[globalIndex];
-
-                            }
-    
-                            else
+                            if (rowType == 1 || rowType == 2)
                             {
                                 rowData += bloquesOrdenados[globalIndex];
-                                qDebug() << "INDICE: " << globalIndex;
-                                qDebug() << "Se adiciona caso 1: " + listaDeClaves[globalIndex];
-                            
+                                qDebug() << "Se adiciona caso 1: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+
+                        }
+                        else if (j == 1)
+                        {
+                            if (rowType == 1 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 3: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
                             }
                         }
-                        else
+                        else if (j == 2)
                         {
-                            parityLocation += 2;
+                            if (rowType == 2 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 4: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
                         }
 
                     }
                     else
                     {
                         rowData += bloquesOrdenados[globalIndex];
-                        qDebug() << "INDICE: " << globalIndex;
-                        qDebug() << "Se adiciona caso 2: " + listaDeClaves[globalIndex];
+                        qDebug() << "Se adiciona caso 5: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                        if (j == 2)
+                        {
+                            avoidRowParid += 4;
+                            changed = true;
+                        }
                     }
                 }
-        
-                avoidRowParid += 4;
-                parityLocation += 8;
+                if (!changed)
+                {
+                    if (rowType == 3)
+                    {
+                        rowType = 1;
+                    }
+                    else
+                    {
+                        rowType++;
+                    }
+                }
+                else
+                {
+                    changed = false;
+                }
+
                 pdfCompleto += rowData;
                 rowData.clear();
                 
