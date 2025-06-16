@@ -3,6 +3,7 @@
         "qtcpsocket": "cpp",
         "qxmlstreamreader": "cpp",
         "qtcpserver": "cpp",
-        "qobject": "cpp"
+        "qobject": "cpp",
+        "qpushbutton": "cpp"
     }
 }
