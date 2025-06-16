@@ -4,6 +4,9 @@
 #include <QWidget>
 #include <QTcpSocket>
 #include <QPushButton>
+#include <QTableWidget>
+#include <QVBoxLayout>
+#include <QHeaderView>
 #include <QLineEdit>
 #include <QFileDialog>
 #include <QApplication>
@@ -21,6 +24,7 @@ public:
 
     void sendData(const QByteArray &data);
     bool isConnected() const;
+    void updateNodeStatus(int nodeID, const QStringList &fileList);
 
 signals:
     void connectionStatusChanged(bool connected);
@@ -36,6 +40,9 @@ private slots:
     void onDisconnected();
     void onError(QAbstractSocket::SocketError error);
 
+    int extractNodeID(const QString &status); 
+    QStringList extractFileNames(const QString &status); 
+
 private:
     httpFormat messageFormat;
     QTcpSocket *socket;
@@ -45,6 +52,9 @@ private:
     QPushButton *btnUpload;
     QLineEdit *lineEditPDFName;
     QHash<QTcpSocket*, QByteArray> buffers; // To receive messages
+
+    QTableWidget *nodeStatusTable;
+    void setupNodeStatusTable(); 
 };
 
 #endif
