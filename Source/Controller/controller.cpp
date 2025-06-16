@@ -73,7 +73,26 @@ void NodeController::onReadyRead() {
             // Lecture for nodes logic begins here
             if (messageFormat.getAction() == ActionMessage::MemoryStatus)
             {
-                break; // Wait for more data
+                QTcpSocket* guiSocket = nullptr;
+                for (QTcpSocket* sock : clientTypes.keys()) {
+                    if (clientTypes[sock].type == ClientType::Gui) {
+                        guiSocket = sock;
+                        break;
+                    }
+                }
+
+                ActionMessage action = ActionMessage::MemoryStatus;
+
+                if (guiSocket) {
+                    QByteArray msg = messageFormat.createFormat(
+                        MessageIndicator::ControllerToServer,
+                        messageFormat.getFileName(),
+                        action,
+                        messageFormat.getContent()
+                    );
+
+                    sendData(guiSocket, msg);
+                }
             }
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
                 if (messageFormat.getAction() == ActionMessage::Upload) {

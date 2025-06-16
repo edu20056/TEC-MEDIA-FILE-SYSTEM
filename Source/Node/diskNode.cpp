@@ -17,12 +17,13 @@ DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
 // ======================== CONNECTION FUNCTIONS ============================================
 
 void DiskNode::onConnected() {
+    sendStatus();
     emit connectionStatusChanged(true);
     nodeInfo(); 
-    sendStatus();
 }
 
 void DiskNode::onDisconnected() {
+    sendStatus();
     emit connectionStatusChanged(false);
     nodeInfo(); 
 }
@@ -76,6 +77,7 @@ bool DiskNode::initPath() {
     }
 
     path = fullPath;
+    sendStatus();
     return true;
 }
 
@@ -93,7 +95,7 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     file.close();
 
     sendStatus();
-    // reconstructPdf(data, fileName); 
+    sendStatus();
     return true; 
 }
 
@@ -131,6 +133,8 @@ void DiskNode::deleteFile(QString const &fileName) {
             file.remove();
         }
     }
+
+    sendStatus();
 }
 
 // ================================= AUXILIARY =====================================  

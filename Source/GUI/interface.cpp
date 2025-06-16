@@ -9,35 +9,47 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
 
     socket->connectToHost(host, port);
 
-    // Erase and Upload
-    btnErase = new QPushButton("Borrar PDF", this);
-    btnErase->setGeometry(50, 120, 200, 50);
+    // Layouts
+    QHBoxLayout *mainLayout = new QHBoxLayout(this);
+    QVBoxLayout *buttonLayout = new QVBoxLayout();
+    QVBoxLayout *tableLayout = new QVBoxLayout();
 
-    btnUpload = new QPushButton("Subir (upload) PDF", this);
-    btnUpload->setGeometry(300, 60, 200, 50);
+    // Botones
+    btnErase = new QPushButton("Borrar PDF");
+    btnUpload = new QPushButton("Subir PDF");
+    btnDownload = new QPushButton("Descargar PDF");
+    btnCheck = new QPushButton("Revisar existencia");
+    lineEditPDFName = new QLineEdit();
+    lineEditPDFName->setPlaceholderText("Nombre PDF");
 
-    // Open PDF
-    btnDownload = new QPushButton("Descargar PDF", this);
-    btnDownload->setGeometry(50, 60, 200, 50);
+    // Añadir al layout de botones
+    buttonLayout->addWidget(btnUpload);
+    buttonLayout->addWidget(btnDownload);
+    buttonLayout->addWidget(btnCheck);
+    buttonLayout->addWidget(btnErase);
+    buttonLayout->addWidget(lineEditPDFName);
+    buttonLayout->addStretch(); // Espacio flexible abajo
 
-    // Check PDF
-    btnCheck = new QPushButton("Revisar existencia de PDF", this);
-    btnCheck->setGeometry(50, 190, 200, 50);
+    // Crear tabla y añadir al layout de tabla
+    setupNodeStatusTable(); // crea `nodeStatusTable`
+    tableLayout->addWidget(nodeStatusTable);
 
-    lineEditPDFName = new QLineEdit(this);
-    lineEditPDFName->setGeometry(50, 260, 200, 30);
-    lineEditPDFName->setPlaceholderText("Nombre PDF para reconstruir");
+    // Añadir ambos al layout principal
+    mainLayout->addLayout(buttonLayout);
+    mainLayout->addLayout(tableLayout);
+
+    // Aplicar layout a la ventana
+    setLayout(mainLayout);
+
+    // Estilo
+    this->setStyleSheet("background-color: lightcoral;");
+    QSize screenSize = qApp->primaryScreen()->availableGeometry().size();
+    resize(screenSize.width() * 0.7, screenSize.height() * 0.6);
 
     connect(btnErase, &QPushButton::clicked, this, &App::erasePDF); // Erase
     connect(btnUpload, &QPushButton::clicked, this, &App::UploadPDF); // Upload pdf
     connect(btnDownload, &QPushButton::clicked, this, &App::Download); // Download
     connect(btnCheck, &QPushButton::clicked, this, &App::CheckExistent); // Download
-    this->setStyleSheet("background-color: lightcoral;");
-
-    QSize screenSize = qApp->primaryScreen()->availableGeometry().size();
-    int w = screenSize.width() * 0.7;
-    int h = screenSize.height() * 0.6;
-    this->resize(w, h);
 }
 
 // ======================== CONNECTION FUNCTIONS ============================================
@@ -111,6 +123,13 @@ void App::onReadyRead() {
                 {
                     qDebug() << "Se checkeo el estado de: " + messageFormat.getFileName() + ". Estado: " + messageFormat.getContent();
                     // Content deberia decir si esta disponible el nombre buscado.
+                }
+
+                else if (messageFormat.getAction() == ActionMessage::MemoryStatus) {
+                    QString status(messageFormat.getContent());
+                    int nodeID = extractNodeID(status);
+                    QStringList fileList = extractFileNames(status);
+                    updateNodeStatus(nodeID, fileList);
                 }
             }
 
@@ -217,4 +236,48 @@ void App::CheckExistent() {
     } else {
         qDebug() << "No se seleccionó ningún archivo." << fileName;
     }
+}
+
+void App::setupNodeStatusTable() {
+    nodeStatusTable = new QTableWidget(this);
+    nodeStatusTable->setRowCount(0);
+    nodeStatusTable->setColumnCount(4);
+    QStringList headers;
+    headers << "N1" << "N2" << "N3" << "N4";
+    nodeStatusTable->setHorizontalHeaderLabels(headers);
+    nodeStatusTable->horizontalHeader()->setStretchLastSection(true);
+    nodeStatusTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    nodeStatusTable->setSelectionMode(QAbstractItemView::NoSelection);
+}
+
+void App::updateNodeStatus(int nodeID, const QStringList &fileList) {
+    if (nodeID < 1 || nodeID > 4) return;
+    int column = nodeID - 1;
+
+    for (int i = 0; i < nodeStatusTable->rowCount(); ++i)
+        nodeStatusTable->setItem(i, column, nullptr);
+
+    int neededRows = fileList.size();
+    if (nodeStatusTable->rowCount() < neededRows)
+        nodeStatusTable->setRowCount(neededRows);
+
+    for (int i = 0; i < fileList.size(); ++i) {
+        QTableWidgetItem *item = new QTableWidgetItem(fileList[i]);
+        nodeStatusTable->setItem(i, column, item);
+    }
+}
+
+int App::extractNodeID(const QString &status) {
+    QRegularExpression idRegex("Node ID: (\\d+)");
+    QRegularExpressionMatch match = idRegex.match(status);
+    return match.hasMatch() ? match.captured(1).toInt() : -1;
+}
+
+QStringList App::extractFileNames(const QString &status) {
+    QStringList lines = status.split('\n', Qt::SkipEmptyParts);
+    QStringList files;
+    for (const QString &line : lines) {
+        if (line.startsWith(" - ")) files << line.mid(3);
+    }
+    return files;
 }
