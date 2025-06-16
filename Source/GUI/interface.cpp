@@ -128,14 +128,24 @@ void App::onReadyRead() {
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::MemoryStatus) {
-                    QString status(messageFormat.getContent());
+                    QByteArray raw = messageFormat.getContent();
+                    QString status = QString::fromUtf8(raw);  // Asegúrate de esto
+
+                    qDebug().noquote() << ">> Status recibido:\n" << status;
+
                     int nodeID = extractNodeID(status);
+                    qDebug() << ">> ID extraído:" << nodeID;
+
                     QStringList fileList;
-                    if (status.contains("Connected: No")) {
+                    if (status.toLower().contains("connected: no")) {
+                        qDebug() << "[CONTAINS NO]" ;
                         fileList << "DISCONNECTED";
                     } else {
                         fileList = extractFileNames(status);
                     }
+
+                    qDebug() << ">> Archivos extraídos o estado:" << fileList;
+
                     updateNodeStatus(nodeID, fileList);
                 }
             }

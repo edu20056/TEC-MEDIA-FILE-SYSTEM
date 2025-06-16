@@ -270,9 +270,9 @@ void NodeController::onDisconnected() {
     if (guiSocket) {
         QByteArray msg = messageFormat.createFormat(
             MessageIndicator::ControllerToServer,
-            messageFormat.getFileName(),
+            "StatusReport",
             action,
-            messageFormat.getContent()
+            statusMessage.toUtf8()
         );
 
         sendData(guiSocket, msg);
