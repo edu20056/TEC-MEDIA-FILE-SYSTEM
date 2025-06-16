@@ -11,6 +11,12 @@ DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
             this, &DiskNode::onError);
 
     socket->connectToHost(host, port);
+    if (!socket->waitForConnected(3000)) {
+        qWarning() << "No se pudo conectar al controlador";
+    } else {
+        sendStatus();
+    }
+
     if(!initPath()){ qWarning() << "!ERROR: Directory couldn't be created..."; }
 }
 
@@ -18,12 +24,13 @@ DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
 
 void DiskNode::onConnected() {
     emit connectionStatusChanged(true);
-    nodeInfo(); 
     sendStatus();
+    nodeInfo(); 
 }
 
 void DiskNode::onDisconnected() {
     emit connectionStatusChanged(false);
+    sendStatus();
     nodeInfo(); 
 }
 
@@ -76,6 +83,7 @@ bool DiskNode::initPath() {
     }
 
     path = fullPath;
+    sendStatus();
     return true;
 }
 
@@ -93,7 +101,6 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     file.close();
 
     sendStatus();
-    // reconstructPdf(data, fileName); 
     return true; 
 }
 
@@ -131,6 +138,8 @@ void DiskNode::deleteFile(QString const &fileName) {
             file.remove();
         }
     }
+
+    sendStatus();
 }
 
 // ================================= AUXILIARY =====================================  
@@ -217,6 +226,7 @@ void DiskNode::onReadyRead() {
     QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
     if (!socket) return;
 
+    sendStatus();
     buffers[socket] += socket->readAll();
 
     while (buffers[socket].size() >= static_cast<qsizetype>(sizeof(quint32))) {

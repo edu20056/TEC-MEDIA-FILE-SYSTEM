@@ -40,7 +40,9 @@ void NodeController::onReadyRead() {
     {
         if (clientNum <= 4)  // First 4 incoming connections are nodes.
         {
+            connectedNodes++;
             clientTypes[client].type = ClientType::DiskNode;
+            qDebug() << "Nodos conectados" + QString::number(connectedNodes);
         }  
         else
         {
@@ -71,7 +73,28 @@ void NodeController::onReadyRead() {
             // Lecture for nodes logic begins here
             if (messageFormat.getAction() == ActionMessage::MemoryStatus)
             {
-                break; // Wait for more data
+                qDebug() << messageFormat.getContent();
+
+                QTcpSocket* guiSocket = nullptr;
+                for (QTcpSocket* sock : clientTypes.keys()) {
+                    if (clientTypes[sock].type == ClientType::Gui) {
+                        guiSocket = sock;
+                        break;
+                    }
+                }
+
+                ActionMessage action = ActionMessage::MemoryStatus;
+
+                if (guiSocket) {
+                    QByteArray msg = messageFormat.createFormat(
+                        MessageIndicator::ControllerToServer,
+                        messageFormat.getFileName(),
+                        action,
+                        messageFormat.getContent()
+                    );
+
+                    sendData(guiSocket, msg);
+                }
             }
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
                 if (messageFormat.getAction() == ActionMessage::Upload) {
@@ -128,22 +151,59 @@ void NodeController::onReadyRead() {
                 
                 if (messageFormat.getAction() == ActionMessage::Download) 
                 {
-                    if (messageFormat.getContent().contains("FINISHED"))
+                    if (connectedNodes == 4) 
                     {
-                        currentNodeLoaded++;
-                        qDebug() << "NODO LISTO!";
-                        if (currentNodeLoaded == 4)
+                        if (messageFormat.getContent().contains("FINISHED"))
                         {
-                            qDebug() << "PDF LISTO PARA RECONSTRUIR";
-                            reconstructPDF(messageFormat.getFileName());
-                            currentNodeLoaded = 0;
-                            incomingDataToDownload.clear();
+                            currentNodeLoaded++;
+                            qDebug() << "NODO LISTO!";
+                            if (currentNodeLoaded == 4)
+                            {
+                                qDebug() << "PDF LISTO PARA RECONSTRUIR";
+                                reconstructPDF(messageFormat.getFileName());
+                                currentNodeLoaded = 0;
+                                incomingDataToDownload.clear();
+                            }
+                        }
+                        else
+                        {
+                            incomingDataToDownload.insert(messageFormat.getFileName(), messageFormat.getContent());
                         }
                     }
-                    else
+                    else if (connectedNodes == 3) 
                     {
-                        incomingDataToDownload.insert(messageFormat.getFileName(), messageFormat.getContent());
+                        if (messageFormat.getContent().contains("FINISHED"))
+                        {
+                            currentNodeLoaded++;
+                            qDebug() << "NODO LISTO! (paridad)";
+                            if (currentNodeLoaded == 3)
+                            {
+                                qDebug() << "PDF LISTO PARA RECONSTRUIR (paridad)";
+                                reconstructPDFParity(messageFormat.getFileName());
+                                currentNodeLoaded = 0;
+                                incomingDataToDownload.clear();
+                            }
+                        }
+                        else
+                        {
+                            incomingDataToDownload.insert(messageFormat.getFileName(), messageFormat.getContent());
+                        }
                     }
+                    else // More than 1 node are desconected, not able to work propertly
+                    {
+                        ActionMessage action = messageFormat.getAction();
+                        QByteArray data = "Not enough nodes are connected!";
+                        QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
+                        for (QTcpSocket* nodo : clientTypes.keys()) {
+                            if (clientTypes.value(nodo).type == ClientType::Gui) {
+                                sendData(nodo, newMessage);
+                            }
+                        } 
+                        qDebug() << "Not enought nodes are connected to work propertly!";
+                        
+                    }
+                    
+
 
                 }
                 
@@ -169,13 +229,54 @@ void NodeController::onReadyRead() {
     }
 }
 
-void NodeController::onDisconnected(){
-
+void NodeController::onDisconnected() {
     QTcpSocket *client = qobject_cast<QTcpSocket*>(sender());
     if (!client) return;
-    
+
+    QString statusMessage;
+    QString fileName = "StatusReport";
+
+    if (clientTypes.contains(client)) {
+        const ClientIdentificator &ident = clientTypes[client];
+
+        if (ident.type == ClientType::DiskNode) {
+            statusMessage += QString("Node ID: %1\n").arg(ident.id);
+            statusMessage += "Connected: No\n";
+            statusMessage += "File Count: 0\n";
+        } else {
+            statusMessage += QString("Client of type %1 disconnected.\n").arg(static_cast<int>(ident.type));
+        }
+
+        qInfo().noquote() << QString("DiskNode desconectado: ID %1").arg(ident.id);
+    } else {
+        statusMessage = "Unidentified client disconnected.\n";
+    }
+
     clients.removeAll(client);
-    qInfo() << "Client disconnected:" << client->peerAddress().toString();
+    clientTypes.remove(client);
+    connectedNodes--;
+
+    qDebug().noquote() << QString("Nodos conectados: %1").arg(connectedNodes);
+
+    QTcpSocket* guiSocket = nullptr;
+    for (QTcpSocket* sock : clientTypes.keys()) {
+        if (clientTypes[sock].type == ClientType::Gui) {
+            guiSocket = sock;
+            break;
+        }
+    }
+
+    ActionMessage action = ActionMessage::MemoryStatus;
+    if (guiSocket) {
+        QByteArray msg = messageFormat.createFormat(
+            MessageIndicator::ControllerToServer,
+            "StatusReport",
+            action,
+            statusMessage.toUtf8()
+        );
+
+        sendData(guiSocket, msg);
+    }
 }
 
 void NodeController::uploadBlksIntoNodes(const QByteArray& fileData, const QString& fileName, quint64 blockSize) {
@@ -352,6 +453,438 @@ void NodeController::reconstructPDF(QString pdfName) {
 
     QString rutaSalida = "../Pdf/Download/" + pdfName + ".pdf";
 
+
+    QFile archivo(rutaSalida);
+    if (archivo.open(QIODevice::WriteOnly)) {
+        archivo.write(pdfCompleto);
+        archivo.close();
+        qDebug() << "Archivo PDF reconstruido correctamente en:" << rutaSalida;
+    } else {
+        qDebug() << "No se pudo guardar el archivo PDF.";
+    }
+}
+
+void NodeController::reconstructPDFParity(QString pdfName) { 
+
+    QByteArray pdfCompleto;
+    int nodeDeleted = 0; // This variable will tell which node was deleted from 1 to 4
+    int iteracions = incomingDataToDownload.size() / 3;
+    if (pdfName.isEmpty()) {
+        qDebug() << "Debes ingresar un nombre de PDF.";
+        return;
+    }
+
+    if (incomingDataToDownload.isEmpty()) {
+        qDebug() << "No se encontraron bloques de datos para reconstruir en mapa OG";
+        return;
+    }
+
+
+    // Logic to detect dead diskNode
+    if (!incomingDataToDownload.contains(pdfName + "_0")) {
+        nodeDeleted = 1;
+    }
+    else if (!incomingDataToDownload.contains(pdfName + "_1")) {
+        nodeDeleted = 2;
+    }
+    else if (!incomingDataToDownload.contains(pdfName + "_2")) {
+        nodeDeleted = 3;
+    }
+    else if (!incomingDataToDownload.contains(pdfName + "_p1")) {
+        nodeDeleted = 4;
+    }
+    else {
+        nodeDeleted = 0;  // None dead... weird 
+    }
+    qDebug() << "Nodo:" << nodeDeleted;
+
+    QMap<int, QByteArray> bloquesOrdenados;
+    QStringList listaDeClaves;
+    int blockCounter = 0;
+    
+    for (int fila = 0; fila < iteracions; ++fila) {
+        int parityDisk = 4 - (fila % 4); // Disco de paridad rotativo (1-4)
+        qDebug() << "--- Procesando fila:" << fila + 1 << "| Disco de paridad:" << parityDisk;
+    
+        for (int disco = 1; disco <= 4; ++disco) {
+            if (disco == nodeDeleted) {
+                qDebug() << "  Disco" << disco << "fallado (nodeDeleted). Omitiendo.";
+                continue;
+            }
+    
+            QString key;
+            if (disco == parityDisk) {
+                key = pdfName + "_p" + QString::number(fila + 1); // Bloque de paridad
+                qDebug() << "  Disco" << disco << "es paridad. Clave generada:" << key;
+            } else {
+                // Cálculo del índice de datos (sin +1 para empezar en 0)
+                int dataIndex = fila * 3;
+                if (disco < parityDisk) {
+                    dataIndex += (disco - 1);
+                } else {
+                    dataIndex += (disco - 2);
+                }
+                key = pdfName + "_" + QString::number(dataIndex); // SIN +1 aquí
+                qDebug() << "  Disco" << disco << "es dato. Clave generada:" << key;
+            }
+    
+            if (incomingDataToDownload.contains(key)) {
+                bloquesOrdenados[blockCounter] = incomingDataToDownload[key];
+                listaDeClaves.append(key);
+                qDebug() << "  -> Añadido a bloquesOrdenados[" << blockCounter << "]";
+                blockCounter++;
+            } else {
+                qDebug() << "  -> ERROR: Clave" << key << "no encontrada en incomingDataToDownload.";
+            }
+        }
+    }
+    
+    // Al final, mostrar la lista de claves en orden
+    qDebug() << "=== Orden final de claves en bloquesOrdenados ===";
+    for (int i = 0; i < listaDeClaves.size(); ++i) {
+        qDebug() << i << ":" << listaDeClaves[i];
+    }
+    
+    
+    switch (nodeDeleted)
+    {
+        case 1: {
+            int avoidRowParid = 3;
+            int rowType = 1;
+            bool changed = false;
+            // 1 = block,block,parity
+            // 2 = block,parity,block
+            // 3 = parity,block,block
+            for (int i = 0; i < iteracions; i++)
+            {
+                QByteArray rowData;
+                for (int j = 0; j < 3; j++)
+                {
+                    int globalIndex = i * 3 + j;
+                    qDebug() << "Global: " << globalIndex << " AvoidParid: " << avoidRowParid ;
+                    if (i != avoidRowParid)
+                    {
+                        if (j == 0) //firs you add the newparity
+                        {
+                            rowData += calculateParity(
+                                bloquesOrdenados[globalIndex ],
+                                bloquesOrdenados[globalIndex + 1],
+                                bloquesOrdenados[globalIndex + 2]);
+                            if (rowType == 1 || rowType == 2)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 2: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+                            else
+                            {
+                                qDebug() << "Se adiciona caso 1: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+                        }
+                        else if (j == 1)
+                        {
+                            if (rowType == 1 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 3: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+                        }
+                        else if (j == 2)
+                        {
+                            if (rowType == 2 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 4: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+                        }
+
+                    }
+                    else
+                    {
+                        rowData += bloquesOrdenados[globalIndex];
+                        qDebug() << "Se adiciona caso 5: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                        if (j == 2)
+                        {
+                            avoidRowParid += 4;
+                            changed = true;
+                        }
+                    }
+                }
+                if (!changed)
+                {
+                    if (rowType == 3)
+                    {
+                        rowType = 1;
+                    }
+                    else
+                    {
+                        rowType++;
+                    }
+                }
+                else
+                {
+                    changed = false;
+                }
+
+                pdfCompleto += rowData;
+                rowData.clear();
+                
+                qDebug() << "Reinicio de columnas!!";
+            }
+            break;
+        }
+        case 2:{
+            int avoidRowParid = 2;
+            int rowType = 1;
+            bool changed = false;
+            // 1 = block,block,parity
+            // 2 = block,parity,block
+            // 3 = parity,block,block
+            for (int i = 0; i < iteracions; i++)
+            {
+                QByteArray rowData;
+                for (int j = 0; j < 3; j++)
+                {
+                    int globalIndex = i * 3 + j;
+                    qDebug() << "Global: " << globalIndex << " AvoidParid: " << avoidRowParid ;
+                    if (i != avoidRowParid)
+                    {
+                        if (j == 0) //firs you add the newparity
+                        {
+                            if (rowType == 1 || rowType == 2)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 2: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+
+                        }
+                        else if (j == 1)
+                        {
+                            rowData += calculateParity(
+                                bloquesOrdenados[globalIndex - 1],
+                                bloquesOrdenados[globalIndex ],
+                                bloquesOrdenados[globalIndex + 1]);
+                            if (rowType == 1 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 3: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+                        }
+                        else if (j == 2)
+                        {
+                            if (rowType == 2 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 4: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+                        }
+
+                    }
+                    else
+                    {
+                        rowData += bloquesOrdenados[globalIndex];
+                        qDebug() << "Se adiciona caso 5: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                        if (j == 2)
+                        {
+                            avoidRowParid += 4;
+                            changed = true;
+                        }
+                    }
+                }
+                if (!changed)
+                {
+                    if (rowType == 3)
+                    {
+                        rowType = 1;
+                    }
+                    else
+                    {
+                        rowType++;
+                    }
+                }
+                else
+                {
+                    changed = false;
+                }
+
+                pdfCompleto += rowData;
+                rowData.clear();
+                
+                qDebug() << "Reinicio de columnas!!";
+            }
+            break;
+        }
+
+        case 3:{
+            int avoidRowParid = 1;
+            int rowType = 1;
+            bool changed = false;
+            // 1 = block,block,parity
+            // 2 = block,parity,block
+            // 3 = parity,block,block
+            for (int i = 0; i < iteracions; i++)
+            {
+                QByteArray rowData;
+                for (int j = 0; j < 3; j++)
+                {
+                    int globalIndex = i * 3 + j;
+                    qDebug() << "Global: " << globalIndex << " AvoidParid: " << avoidRowParid ;
+                    if (i != avoidRowParid)
+                    {
+                        if (j == 0) //firs you add the newparity
+                        {
+                            if (rowType == 1 || rowType == 2)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 1: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+
+                        }
+                        else if (j == 1)
+                        {
+                            if (rowType == 1 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 3: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+                        }
+                        else if (j == 2)
+                        {
+                            rowData += calculateParity(
+                                bloquesOrdenados[globalIndex - 1],
+                                bloquesOrdenados[globalIndex - 2],
+                                bloquesOrdenados[globalIndex]);
+                                
+                            if (rowType == 2 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 4: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+
+                        }
+
+                    }
+                    else
+                    {
+                        rowData += bloquesOrdenados[globalIndex];
+                        qDebug() << "Se adiciona caso 5: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                        if (j == 2)
+                        {
+                            avoidRowParid += 4;
+                            changed = true;
+                        }
+                    }
+                }
+                if (!changed)
+                {
+                    if (rowType == 3)
+                    {
+                        rowType = 1;
+                    }
+                    else
+                    {
+                        rowType++;
+                    }
+                }
+                else
+                {
+                    changed = false;
+                }
+
+                pdfCompleto += rowData;
+                rowData.clear();
+                
+                qDebug() << "Reinicio de columnas!!";
+            }
+            break;
+        }
+        case 4: {
+            int avoidRowParid = 0;
+            int rowType = 1;
+            bool changed = false;
+            // 1 = block,block,parity
+            // 2 = block,parity,block
+            // 3 = parity,block,block
+            for (int i = 0; i < iteracions; i++)
+            {
+                QByteArray rowData;
+                for (int j = 0; j < 3; j++)
+                {
+                    int globalIndex = i * 3 + j;
+                    qDebug() << "Global: " << globalIndex << " AvoidParid: " << avoidRowParid ;
+                    if (i != avoidRowParid)
+                    {
+                        if (j == 0) //firs you add the newparity
+                        {
+                            if (rowType == 1 || rowType == 2)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 1: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+
+                        }
+                        else if (j == 1)
+                        {
+                            if (rowType == 1 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 3: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+                        }
+                        else if (j == 2)
+                        {
+                            if (rowType == 2 || rowType == 3)
+                            {
+                                rowData += bloquesOrdenados[globalIndex];
+                                qDebug() << "Se adiciona caso 4: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                            }
+
+                            rowData += calculateParity(
+                                bloquesOrdenados[globalIndex - 1],
+                                bloquesOrdenados[globalIndex - 2],
+                                bloquesOrdenados[globalIndex]);
+                        }
+
+                    }
+                    else
+                    {
+                        rowData += bloquesOrdenados[globalIndex];
+                        qDebug() << "Se adiciona caso 5: " + listaDeClaves[globalIndex] << ". INDICE: " << globalIndex;
+                        if (j == 2)
+                        {
+                            avoidRowParid += 4;
+                            changed = true;
+                        }
+                    }
+                }
+                if (!changed)
+                {
+                    if (rowType == 3)
+                    {
+                        rowType = 1;
+                    }
+                    else
+                    {
+                        rowType++;
+                    }
+                }
+                else
+                {
+                    changed = false;
+                }
+
+                pdfCompleto += rowData;
+                rowData.clear();
+                
+                qDebug() << "Reinicio de columnas!!";
+            }
+            break;
+        }
+        
+        default:
+            break;
+    }
+
+    QString rutaSalida = "../Pdf/Download/" + pdfName + ".pdf";
 
     QFile archivo(rutaSalida);
     if (archivo.open(QIODevice::WriteOnly)) {
