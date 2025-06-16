@@ -1,8 +1,8 @@
 #include "diskNode.hpp"
 
 DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
-    const QString path, quint16 id) 
-    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id) {
+    const QString path, quint16 id, quint64 blk, quint64 disk) 
+    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id), blkSize(blk), diskSize(disk) {
 
     connect(socket, &QTcpSocket::readyRead, this, &DiskNode::onReadyRead);
     connect(socket, &QTcpSocket::connected, this, &DiskNode::onConnected);

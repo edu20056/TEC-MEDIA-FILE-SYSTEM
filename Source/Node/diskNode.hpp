@@ -19,7 +19,9 @@ public:
         const QString &host = "localhost",
         quint16 port = 50000,
         const QString path = "",
-        quint16 = 0
+        quint16 id = 0, 
+        quint64 blk = 0, 
+        quint64 disk = 0
     );
 
     void sendData(const QByteArray &data);
@@ -51,6 +53,8 @@ private:
     QTcpSocket *socket;
     QString path;
     quint16 nodeID;
+    quint64 blkSize; 
+    quint64 diskSize; 
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
     QStringList fileNamesAdded;

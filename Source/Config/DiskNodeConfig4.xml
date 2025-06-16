@@ -3,6 +3,6 @@
     <ControllerIP>localhost</ControllerIP>
     <ControllerPort>50000</ControllerPort>
     <StoragePath>Node/Core</StoragePath>
-    <DiskSize>...</DiskSize>
-    <BlockSize>512</BlockSize>
+    <DiskSize>4</DiskSize>
+    <BlockSize>739</BlockSize>
 </DiskNodeConfig>
