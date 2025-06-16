@@ -163,6 +163,14 @@ void NodeController::onReadyRead() {
                                 reconstructPDF(messageFormat.getFileName());
                                 currentNodeLoaded = 0;
                                 incomingDataToDownload.clear();
+                                QString data = "Con la cantidad de 4 nodos se descargó: " + messageFormat.getFileName();
+                                ActionMessage action = ActionMessage::Download;
+                                QByteArray message = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data.toUtf8());
+                                for (QTcpSocket* nodo : clientTypes.keys()) {
+                                    if (clientTypes.value(nodo).type == ClientType::Gui) {
+                                        sendData(nodo, message);
+                                       }
+                                } 
                             }
                         }
                         else
@@ -182,6 +190,15 @@ void NodeController::onReadyRead() {
                                 reconstructPDFParity(messageFormat.getFileName());
                                 currentNodeLoaded = 0;
                                 incomingDataToDownload.clear();
+
+                                QString data = "Con la cantidad de 3 nodos se descargó: " + messageFormat.getFileName();
+                                ActionMessage action = ActionMessage::Download;
+                                QByteArray message = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data.toUtf8());
+                                for (QTcpSocket* nodo : clientTypes.keys()) {
+                                    if (clientTypes.value(nodo).type == ClientType::Gui) {
+                                        sendData(nodo, message);
+                                       }
+                                } 
                             }
                         }
                         else
@@ -192,7 +209,7 @@ void NodeController::onReadyRead() {
                     else // More than 1 node are desconected, not able to work propertly
                     {
                         ActionMessage action = messageFormat.getAction();
-                        QByteArray data = "Not enough nodes are connected!";
+                        QByteArray data = "No hay suficientes nodos conectados!";
                         QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
                         for (QTcpSocket* nodo : clientTypes.keys()) {
                             if (clientTypes.value(nodo).type == ClientType::Gui) {
@@ -294,6 +311,14 @@ void NodeController::uploadBlksIntoNodes(const QByteArray& fileData, const QStri
 
     if (numDisks < 4) {
         qWarning() << "!ERROR: NOT ENOUGH DISKS";
+        QString data = "No hay suficientes nodos para subir el pdf: " + messageFormat.getFileName();
+        ActionMessage action = ActionMessage::Download;
+        QByteArray message = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data.toUtf8());
+        for (QTcpSocket* nodo : clientTypes.keys()) {
+            if (clientTypes.value(nodo).type == ClientType::Gui) {
+                sendData(nodo, message);
+               }
+        } 
         return;
     }
 

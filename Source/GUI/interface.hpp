@@ -14,6 +14,7 @@
 #include <QDebug>
 #include <QFile>
 #include <QDir>
+#include <QLabel>
 #include "../HTTP/httpFormat.hpp"
 
 class App : public QWidget {
@@ -25,12 +26,13 @@ public:
     void sendData(const QByteArray &data);
     bool isConnected() const;
     void updateNodeStatus(int nodeID, const QStringList &fileList);
+    void changeInformationMessage(QLabel* textBox, const QString& nuevoTexto);
 
 signals:
     void connectionStatusChanged(bool connected);
 
 private slots:
-
+    
     void onReadyRead();
     void erasePDF(); // erase
     void UploadPDF(); // upload
@@ -51,8 +53,8 @@ private:
     QPushButton *btnDownload;
     QPushButton *btnUpload;
     QLineEdit *lineEditPDFName;
+    QLabel *showInformation;
     QHash<QTcpSocket*, QByteArray> buffers; // To receive messages
-
     QTableWidget *nodeStatusTable;
     void setupNodeStatusTable(); 
 };
