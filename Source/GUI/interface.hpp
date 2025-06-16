@@ -8,6 +8,7 @@
 #include <QVBoxLayout>
 #include <QHeaderView>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QFileDialog>
 #include <QApplication>
 #include <QScreen>
@@ -44,6 +45,7 @@ private slots:
 
     int extractNodeID(const QString &status); 
     QStringList extractFileNames(const QString &status); 
+    void updateUniqueFileList(const QStringList &fileList);
 
 private:
     httpFormat messageFormat;
@@ -57,6 +59,8 @@ private:
     QHash<QTcpSocket*, QByteArray> buffers; // To receive messages
     QTableWidget *nodeStatusTable;
     void setupNodeStatusTable(); 
+    QListWidget *uniqueFileList;
+    QSet<QString> allNodeFiles;
 };
 
 #endif
