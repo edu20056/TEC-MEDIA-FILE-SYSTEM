@@ -33,6 +33,8 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     // Crear tabla y añadir al layout de tabla
     setupNodeStatusTable(); // crea `nodeStatusTable`
     tableLayout->addWidget(nodeStatusTable);
+    QHeaderView *header = nodeStatusTable->horizontalHeader();
+    header->setSectionResizeMode(QHeaderView::Stretch);
 
     // Añadir ambos al layout principal
     mainLayout->addLayout(buttonLayout);
@@ -128,7 +130,12 @@ void App::onReadyRead() {
                 else if (messageFormat.getAction() == ActionMessage::MemoryStatus) {
                     QString status(messageFormat.getContent());
                     int nodeID = extractNodeID(status);
-                    QStringList fileList = extractFileNames(status);
+                    QStringList fileList;
+                    if (status.contains("Connected: No")) {
+                        fileList << "DISCONNECTED";
+                    } else {
+                        fileList = extractFileNames(status);
+                    }
                     updateNodeStatus(nodeID, fileList);
                 }
             }
@@ -248,11 +255,25 @@ void App::setupNodeStatusTable() {
     nodeStatusTable->horizontalHeader()->setStretchLastSection(true);
     nodeStatusTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     nodeStatusTable->setSelectionMode(QAbstractItemView::NoSelection);
+    nodeStatusTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    nodeStatusTable->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    nodeStatusTable->setWordWrap(true);
 }
 
 void App::updateNodeStatus(int nodeID, const QStringList &fileList) {
     if (nodeID < 1 || nodeID > 4) return;
     int column = nodeID - 1;
+
+    if (fileList.size() == 1 && fileList[0] == "DISCONNECTED") {
+
+        for (int i = 0; i < nodeStatusTable->rowCount(); ++i)
+            nodeStatusTable->setItem(i, column, nullptr);
+
+        nodeStatusTable->setColumnHidden(column, true);
+        return;
+    }
+
+    nodeStatusTable->setColumnHidden(column, false);
 
     for (int i = 0; i < nodeStatusTable->rowCount(); ++i)
         nodeStatusTable->setItem(i, column, nullptr);
@@ -263,6 +284,8 @@ void App::updateNodeStatus(int nodeID, const QStringList &fileList) {
 
     for (int i = 0; i < fileList.size(); ++i) {
         QTableWidgetItem *item = new QTableWidgetItem(fileList[i]);
+        item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        item->setToolTip(fileList[i]);
         nodeStatusTable->setItem(i, column, item);
     }
 }

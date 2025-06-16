@@ -73,6 +73,8 @@ void NodeController::onReadyRead() {
             // Lecture for nodes logic begins here
             if (messageFormat.getAction() == ActionMessage::MemoryStatus)
             {
+                qDebug() << messageFormat.getContent();
+
                 QTcpSocket* guiSocket = nullptr;
                 for (QTcpSocket* sock : clientTypes.keys()) {
                     if (clientTypes[sock].type == ClientType::Gui) {
@@ -227,16 +229,54 @@ void NodeController::onReadyRead() {
     }
 }
 
-void NodeController::onDisconnected(){
-
+void NodeController::onDisconnected() {
     QTcpSocket *client = qobject_cast<QTcpSocket*>(sender());
     if (!client) return;
-    
+
+    QString statusMessage;
+    QString fileName = "StatusReport";
+
+    if (clientTypes.contains(client)) {
+        const ClientIdentificator &ident = clientTypes[client];
+
+        if (ident.type == ClientType::DiskNode) {
+            statusMessage += QString("Node ID: %1\n").arg(ident.id);
+            statusMessage += "Connected: No\n";
+            statusMessage += "File Count: 0\n";
+        } else {
+            statusMessage += QString("Client of type %1 disconnected.\n").arg(static_cast<int>(ident.type));
+        }
+
+        qInfo().noquote() << QString("DiskNode desconectado: ID %1").arg(ident.id);
+    } else {
+        statusMessage = "Unidentified client disconnected.\n";
+    }
+
     clients.removeAll(client);
     clientTypes.remove(client);
     connectedNodes--;
-    qInfo() << "Client disconnected:" << client->peerAddress().toString();
-    qDebug() << "Nodos conectados" + QString::number(connectedNodes);
+
+    qDebug().noquote() << QString("Nodos conectados: %1").arg(connectedNodes);
+
+    QTcpSocket* guiSocket = nullptr;
+    for (QTcpSocket* sock : clientTypes.keys()) {
+        if (clientTypes[sock].type == ClientType::Gui) {
+            guiSocket = sock;
+            break;
+        }
+    }
+
+    ActionMessage action = ActionMessage::MemoryStatus;
+    if (guiSocket) {
+        QByteArray msg = messageFormat.createFormat(
+            MessageIndicator::ControllerToServer,
+            messageFormat.getFileName(),
+            action,
+            messageFormat.getContent()
+        );
+
+        sendData(guiSocket, msg);
+    }
 }
 
 void NodeController::uploadBlksIntoNodes(const QByteArray& fileData, const QString& fileName, quint64 blockSize) {
@@ -457,10 +497,6 @@ void NodeController::reconstructPDFParity(QString pdfName) {
         nodeDeleted = 0;  // None dead... weird 
     }
     qDebug() << "Nodo:" << nodeDeleted;
-
-
-
-    // NOSE SE FUNCIONA CHATY HIZO ESTO
 
     QMap<int, QByteArray> bloquesOrdenados;
     QStringList listaDeClaves;

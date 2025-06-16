@@ -11,20 +11,26 @@ DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
             this, &DiskNode::onError);
 
     socket->connectToHost(host, port);
+    if (!socket->waitForConnected(3000)) {
+        qWarning() << "No se pudo conectar al controlador";
+    } else {
+        sendStatus();
+    }
+
     if(!initPath()){ qWarning() << "!ERROR: Directory couldn't be created..."; }
 }
 
 // ======================== CONNECTION FUNCTIONS ============================================
 
 void DiskNode::onConnected() {
-    sendStatus();
     emit connectionStatusChanged(true);
+    sendStatus();
     nodeInfo(); 
 }
 
 void DiskNode::onDisconnected() {
-    sendStatus();
     emit connectionStatusChanged(false);
+    sendStatus();
     nodeInfo(); 
 }
 
@@ -94,7 +100,6 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     if (bytesWritten == -1) return false;
     file.close();
 
-    sendStatus();
     sendStatus();
     return true; 
 }
@@ -221,6 +226,7 @@ void DiskNode::onReadyRead() {
     QTcpSocket *socket = qobject_cast<QTcpSocket*>(sender());
     if (!socket) return;
 
+    sendStatus();
     buffers[socket] += socket->readAll();
 
     while (buffers[socket].size() >= static_cast<qsizetype>(sizeof(quint32))) {
