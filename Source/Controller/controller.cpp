@@ -98,7 +98,7 @@ void NodeController::onReadyRead() {
             }
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
                 if (messageFormat.getAction() == ActionMessage::Upload) {
-                    
+                    currentRaidRow = 0;
                     uploadBlksIntoNodes(messageFormat.getContent(), messageFormat.getFileName(), blockSize);
                 }
                 else if (messageFormat.getAction() == ActionMessage::Erase)
