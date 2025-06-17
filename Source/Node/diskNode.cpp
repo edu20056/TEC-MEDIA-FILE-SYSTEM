@@ -92,13 +92,13 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
         QByteArray errorMsg = "Tamaño de bloque incorrecto. Esperado: " 
                             + QByteArray::number(blkSize) 
                             + ", recibido: " + QByteArray::number(data.size());
-        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Error, errorMsg));
+        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Space, errorMsg));
         return false;
     }
 
     if (memoryUsed + data.size() > diskSize) {
-        QByteArray errorMsg = "Memoria insuficiente para guardar el archivo.";
-        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Error, errorMsg));
+        QByteArray errorMsg = "Memoria insuficiente para guardar el archivo";
+        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Space, errorMsg));
         return false;
     }
 
@@ -115,6 +115,8 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
 
     sendStatus();
     memoryUsed += bytesWritten;
+    sendData(buildMessage(MessageIndicator::NodeToController, 
+        fileName, ActionMessage::Space, QByteArray::number(memoryUsed)));
     return true; 
 }
 
@@ -160,6 +162,8 @@ void DiskNode::deleteFile(QString const &fileName) {
         }
     }
 
+    sendData(buildMessage(MessageIndicator::NodeToController, 
+        fileName, ActionMessage::Space, QByteArray::number(memoryUsed)));
     sendStatus();
 }
 
@@ -343,11 +347,12 @@ void DiskNode::onReadyRead() {
 }
 
 void DiskNode::sendData(const QByteArray &data) {
-
     if (!isConnected()) {
         qDebug() << "No conectado, no se puede enviar datos";
         return;
     }
+
+    qDebug().noquote() << "[Debug] Enviando mensaje:" << data;
 
     QByteArray block;
     QDataStream out(&block, QIODevice::WriteOnly);

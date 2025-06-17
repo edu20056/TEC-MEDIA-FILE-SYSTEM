@@ -5,7 +5,6 @@ NodeController::NodeController(QObject *parent, quint16 port, quint64 block, qui
 {
     blockSize = block;
     totalMemory = space; 
-    availableMemory = space; 
     qDebug() << "Inicialized as: " << port << ", Blocksize" << blockSize;
     if (!listen(QHostAddress::Any, port)) {
         qCritical() << "Server could not start:" << errorString();
@@ -205,9 +204,36 @@ void NodeController::onReadyRead() {
                         qDebug() << "Not enought nodes are connected to work propertly!";
                         
                     }
-                    
+                }
 
+                if (messageFormat.getAction() == ActionMessage::Space) {
+                    qDebug() << "[Controller] Se recibió mensaje de espacio del nodo.";
 
+                    QTcpSocket* senderSocket = qobject_cast<QTcpSocket*>(sender());
+                    if (!senderSocket) return;
+
+                    QByteArray data = messageFormat.getContent();
+                    quint64 memoryUsed = data.toULongLong() * 3;
+
+                    QString spaceUsage = QString("Memoria Usada: %1 / %2").arg(memoryUsed).arg(totalMemory);
+                    qDebug() << "[Controller] Espacio usado:" << spaceUsage;
+
+                    QByteArray resultMessage = spaceUsage.toUtf8();
+
+                    ActionMessage action = ActionMessage::Space;
+                    QByteArray newMessage = messageFormat.createFormat(
+                        MessageIndicator::ControllerToServer, 
+                        messageFormat.getFileName(), 
+                        action, 
+                        resultMessage
+                    );
+
+                    for (QTcpSocket* nodo : clientTypes.keys()) {
+                        if (clientTypes.value(nodo).type == ClientType::Gui) {
+                            qDebug() << "[Controller] Enviando a GUI...";
+                            sendData(nodo, newMessage);
+                        }
+                    }
                 }
                 
                 else // Check, Delete, AND Upload show generic answer message.

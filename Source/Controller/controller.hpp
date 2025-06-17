@@ -3,7 +3,7 @@
 
 #include <QCoreApplication>
 #include <QTcpServer>
-#include <QTcpSocket>
+#include <QTcpSocket>   
 #include <QObject>
 #include <QByteArray>
 #include <QDebug>
@@ -59,7 +59,6 @@ private:
     QMap<QString, QByteArray> incomingDataToDownload;
     int currentNodeLoaded = 0;
     int connectedNodes = 0;
-    qint64 availableMemory;
     qint64 totalMemory; 
 };
 

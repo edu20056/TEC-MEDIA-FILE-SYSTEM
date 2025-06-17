@@ -25,6 +25,8 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     lineEditPDFName = new QLineEdit();
     showInformation->move(100, 200);
     lineEditPDFName->setPlaceholderText("Nombre PDF");
+    showSpace = new QLabel("Memoria Usada: ---");
+    showSpace->move(100, 205);
 
     uniqueFileList = new QListWidget();
     uniqueFileList->setSelectionMode(QAbstractItemView::NoSelection);
@@ -40,6 +42,7 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     buttonLayout->addWidget(btnErase);
     buttonLayout->addWidget(lineEditPDFName);
     buttonLayout->addWidget(showInformation);
+    buttonLayout->addWidget(showSpace);
     buttonLayout->addStretch(); // Espacio flexible abajo
 
     // Crear tabla y añadir al layout de tabla
@@ -67,6 +70,10 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
 }
 
 void App::changeInformationMessage(QLabel* textBox, const QString& nuevoTexto) {
+    textBox->setText(nuevoTexto);
+}
+
+void App::spaceUsageMsg(QLabel* textBox, const QString& nuevoTexto) {
     textBox->setText(nuevoTexto);
 }
 // ======================== CONNECTION FUNCTIONS ============================================
@@ -142,13 +149,17 @@ void App::onReadyRead() {
                     qDebug() << "Se checkeo el estado de: " + messageFormat.getFileName() + ". Estado: " + messageFormat.getContent();
                     changeInformationMessage(showInformation, messageFormat.getContent() + " Nombre del pdf: " + messageFormat.getFileName());
                 }
+
                 else if (messageFormat.getAction() == ActionMessage::Error)
                 {
                     changeInformationMessage(showInformation, messageFormat.getContent());
-                
+                }
+
+                else if (messageFormat.getAction() == ActionMessage::Space)
+                {
+                    spaceUsageMsg(showSpace,messageFormat.getContent());
                 }
                 
-
                 else if (messageFormat.getAction() == ActionMessage::MemoryStatus) {
                     QByteArray raw = messageFormat.getContent();
                     QString status = QString::fromUtf8(raw);  // Asegúrate de esto

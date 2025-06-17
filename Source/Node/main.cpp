@@ -19,9 +19,9 @@ int main(int argc, char *argv[]){
     quint16 id = idStr.toUShort();
 
     QString blkStr = configRead(xmlPath, xmlTag::BlockSize);
-    quint64 blk = 1054 * blkStr.toUShort();
+    quint64 blk = 1024 * blkStr.toUShort();
     QString diskStr = configRead(xmlPath, xmlTag::DiskSize);
-    quint64 disk = 1054 *1054 * diskStr.toUShort();
+    quint64 disk = 1024 *1024 * diskStr.toUShort();
 
     // ===================== NODE INITIALIZATION =====================
     if(id == 0) return -1;
