@@ -14,13 +14,14 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     QVBoxLayout *buttonLayout = new QVBoxLayout();
     QVBoxLayout *tableLayout = new QVBoxLayout();
 
-    // Botones
+    // Widgets
     btnErase = new QPushButton("Borrar PDF");
     btnUpload = new QPushButton("Subir PDF");
     btnDownload = new QPushButton("Descargar PDF");
     btnCheck = new QPushButton("Revisar existencia");
     lineEditPDFName = new QLineEdit();
     lineEditPDFName->setPlaceholderText("Nombre PDF");
+    showInformation = new QLabel("Esperando acción del usuario...");
 
     // Añadir al layout de botones
     buttonLayout->addWidget(btnUpload);
@@ -28,6 +29,7 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     buttonLayout->addWidget(btnCheck);
     buttonLayout->addWidget(btnErase);
     buttonLayout->addWidget(lineEditPDFName);
+    buttonLayout->addWidget(showInformation);
     buttonLayout->addStretch(); // Espacio flexible abajo
 
     // Crear tabla y añadir al layout de tabla
@@ -52,6 +54,9 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     connect(btnUpload, &QPushButton::clicked, this, &App::UploadPDF); // Upload pdf
     connect(btnDownload, &QPushButton::clicked, this, &App::Download); // Download
     connect(btnCheck, &QPushButton::clicked, this, &App::CheckExistent); // Download
+}
+void App::changeInformationMessage(QLabel* textBox, const QString& nuevoTexto) {
+    textBox->setText(nuevoTexto);
 }
 
 // ======================== CONNECTION FUNCTIONS ============================================
@@ -106,26 +111,32 @@ void App::onReadyRead() {
                 if (messageFormat.getAction() == ActionMessage::Upload)
                 {
                     qDebug() << "Se intento subir el pdf: " + messageFormat.getFileName() + ". Se obtuvo como resultado: " + messageFormat.getContent();
-                    // resultado debe decir "Pdf no se logro subir" o "Pdf subido exitosamente"
+                    QString nombre = messageFormat.getFileName().split("_").at(0); 
+                    changeInformationMessage(showInformation, "Se subió el pdf: " + nombre);
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Erase)
                 {
                     qDebug() << "Se intento borrar el pdf: " + messageFormat.getFileName() + ". Se obtuvo como resultado: " + messageFormat.getContent();
-                    // resultado debe decir "Pdf no existia" o "Pdf borrado exitosamente"
+                    changeInformationMessage(showInformation, messageFormat.getContent());
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Download)
                 {
                     qDebug() << "Se descarga el file: " + messageFormat.getFileName() + ". En la direccion: " + messageFormat.getContent();
-                    // En teoria el content deberia ser la direccion donde se descargo el pdf
+                    changeInformationMessage(showInformation, messageFormat.getContent());
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Check)
                 {
                     qDebug() << "Se checkeo el estado de: " + messageFormat.getFileName() + ". Estado: " + messageFormat.getContent();
-                    // Content deberia decir si esta disponible el nombre buscado.
+                    changeInformationMessage(showInformation, messageFormat.getContent() + " Nombre del pdf: " + messageFormat.getFileName());
                 }
+                else if (messageFormat.getAction() == ActionMessage::Error)
+                {
+                    changeInformationMessage(showInformation, messageFormat.getContent());
+                }
+                
 
                 else if (messageFormat.getAction() == ActionMessage::MemoryStatus) {
                     QByteArray raw = messageFormat.getContent();
@@ -187,6 +198,7 @@ void App::erasePDF()
     QString pdfName = lineEditPDFName->text();
     if (pdfName.isEmpty()) {
         qDebug() << "Debes ingresar un nombre de PDF.";
+        changeInformationMessage(showInformation, "Al eliminar un pdf, se debe colocara el nombre del archivo que desea eliminar.");
         return;
     }
     
@@ -198,13 +210,18 @@ void App::erasePDF()
 
 void App::UploadPDF() {
     QString fileName = QFileDialog::getOpenFileName(this, "Seleccionar archivo PDF", QDir::homePath(), "Archivos PDF (*.pdf)");
-    if (fileName.isEmpty())
+    if (fileName.isEmpty()){
+        qDebug() << "El archivo pdf " << fileName << " esta vacio.";
+        changeInformationMessage(showInformation, "El espacio de texto esta vacio.");
         return;
+    }
+
 
     QFile file(fileName);
     QFileInfo fileIndo(fileName);
     if (!file.open(QIODevice::ReadOnly)) {
         qDebug() << "No se pudo abrir el archivo:" << fileName;
+        changeInformationMessage(showInformation, "El archivo seleccionado " + fileName +" no se puede abrir al estar vacio.");
         return;
     }
 
@@ -212,7 +229,8 @@ void App::UploadPDF() {
     file.close();
 
     if (data.isEmpty()) {
-        qDebug() << "El archivo PDF está vacío:"  << fileName;
+        qDebug() << "El contenido del archivo pdf " << fileName << " esta vacio.";
+        changeInformationMessage(showInformation, "El archivo seleccionado " + fileName +" esta vacio.");
         return;
     }
 
@@ -236,6 +254,7 @@ void App::Download() {
         sendData(message);
     } else {
         qDebug() << "No se seleccionó ningún archivo." << fileName;
+        changeInformationMessage(showInformation, "Al descargar, se debe colocara el nombre del archivo que desea descargar.");
     }
 }
 
@@ -252,6 +271,7 @@ void App::CheckExistent() {
         sendData(message);
     } else {
         qDebug() << "No se seleccionó ningún archivo." << fileName;
+        changeInformationMessage(showInformation, "Al revisar pdf, se debe colocara el nombre del archivo que desea revisar.");
     }
 }
 

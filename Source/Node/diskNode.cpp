@@ -248,10 +248,11 @@ void DiskNode::onReadyRead() {
                 const QString &fileName = messageFormat.getFileName();
 
                 if (messageFormat.getAction() == ActionMessage::Upload) {
-
-                    if (!fileNamesAdded.contains(messageFormat.getFileName()))
+                    
+                    QString nombre = fileName.split("_").at(0); 
+                    if (!fileNamesAdded.contains(nombre))
                     {
-                        fileNamesAdded.append(messageFormat.getFileName());
+                        fileNamesAdded.append(nombre);
 
                     }
 
@@ -264,15 +265,33 @@ void DiskNode::onReadyRead() {
 
                 else if (messageFormat.getAction() == ActionMessage::Erase) {
 
-                    deleteFile(fileName); 
-
-                    data = "Se borra el pdf: " + fileName.toUtf8();
-                    sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data));
+                    if (fileNamesAdded.contains(fileName))
+                    {
+                        deleteFile(fileName); 
+                        fileNamesAdded.removeAll(fileName);
+                        data = "Se borra el pdf: " + fileName.toUtf8();
+                        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data));
+                    }
+                    else
+                    {
+                        data = "No se encontro el siguiente PDF para borrar: " + fileName.toUtf8();
+                        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data)); 
+                    }
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Download) {
-                    qDebug() << "El nodo empieza a mandar info para descarga de pdf";
-                    searchAndSendPdfBlocks(path,messageFormat.getFileName());
+
+                    if (fileNamesAdded.contains(fileName))
+                    {
+                        qDebug() << "El nodo empieza a mandar info para descarga de pdf";
+                        searchAndSendPdfBlocks(path,messageFormat.getFileName());
+                    }
+                    else
+                    {
+                        QString message = "El pdf " + fileName + " no ha sido subido para poder descargarlo.";
+                        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Error, message.toUtf8()));
+                
+                    }
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Check) {

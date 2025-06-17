@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QScreen>
 #include <QDebug>
+#include <QLabel>
 #include <QFile>
 #include <QDir>
 #include "../HTTP/httpFormat.hpp"
@@ -25,7 +26,8 @@ public:
     void sendData(const QByteArray &data);
     bool isConnected() const;
     void updateNodeStatus(int nodeID, const QStringList &fileList);
-
+    void changeInformationMessage(QLabel* textBox, const QString& nuevoTexto);
+    
 signals:
     void connectionStatusChanged(bool connected);
 
@@ -51,6 +53,7 @@ private:
     QPushButton *btnDownload;
     QPushButton *btnUpload;
     QLineEdit *lineEditPDFName;
+    QLabel *showInformation;
     QHash<QTcpSocket*, QByteArray> buffers; // To receive messages
 
     QTableWidget *nodeStatusTable;
