@@ -1,5 +1,5 @@
 <CtrlConfig>
     <ControllerPort>50000</ControllerPort>
-    <TotalSpace>25</TotalSpace>
-    <BlockSize>739</BlockSize>
+    <TotalSpace>72</TotalSpace> <!-- 72 MB -->
+    <BlockSize>739</BlockSize> <!-- 739 kB -->
 </CtrlConfig>

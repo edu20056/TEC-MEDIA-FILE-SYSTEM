@@ -31,7 +31,7 @@ class NodeController : public QTcpServer {
     Q_OBJECT
 public:
     int blockSize;
-    explicit NodeController(QObject *parent = nullptr, quint16 port = 50000, quint64 blockSize = 1024);
+    explicit NodeController(QObject *parent = nullptr, quint16 port = 50000, quint64 blockSize = 1024, quint64 space = 1024);
     void sendData(QTcpSocket *client, const QByteArray &data);
     QList<QByteArray> splitIntoBlocks(const QByteArray& data, quint64 blockSize);
     QByteArray calculateParity(const QByteArray& block1, const QByteArray& block2, const QByteArray& block3);
@@ -60,6 +60,7 @@ private:
     int currentNodeLoaded = 0;
     int connectedNodes = 0;
     int spaceUsed = 0;
+    quint64 totalMemory; 
 };
 
 #endif

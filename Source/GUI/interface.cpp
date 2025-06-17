@@ -22,6 +22,15 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     lineEditPDFName = new QLineEdit();
     lineEditPDFName->setPlaceholderText("Nombre PDF");
     showInformation = new QLabel("Esperando acción del usuario...");
+    showSpace = new QLabel("Memoria Usada: ---");
+    showSpace->move(100, 205);
+
+    uniqueFileList = new QListWidget();
+    uniqueFileList->setSelectionMode(QAbstractItemView::NoSelection);
+    uniqueFileList->setFocusPolicy(Qt::NoFocus);
+    uniqueFileList->setStyleSheet("background-color: lightcoral;");
+    buttonLayout->addWidget(new QLabel("Archivos PDF:"));
+    buttonLayout->addWidget(uniqueFileList);
 
     // Añadir al layout de botones
     buttonLayout->addWidget(btnUpload);
@@ -328,6 +337,8 @@ void App::updateNodeStatus(int nodeID, const QStringList &fileList) {
         item->setToolTip(fileList[i]);
         nodeStatusTable->setItem(i, column, item);
     }
+
+    updateUniqueFileList(fileList);
 }
 
 int App::extractNodeID(const QString &status) {
@@ -343,4 +354,18 @@ QStringList App::extractFileNames(const QString &status) {
         if (line.startsWith(" - ")) files << line.mid(3);
     }
     return files;
+}
+
+void App::updateUniqueFileList(const QStringList &fileList) {
+    QSet<QString> uniqueNames;
+
+    for (const QString &fullName : fileList) {
+        QString baseName = fullName.split("_").first();
+        uniqueNames.insert(baseName);
+    }
+
+    uniqueFileList->clear();
+    for (const QString &name : uniqueNames) {
+        uniqueFileList->addItem(name);
+    }
 }

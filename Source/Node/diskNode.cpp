@@ -1,8 +1,8 @@
 #include "diskNode.hpp"
 
 DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
-    const QString path, quint16 id) 
-    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id) {
+    const QString path, quint16 id, quint64 blk, quint64 disk) 
+    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id), blkSize(blk), diskSize(disk), memoryUsed(0) {
 
     connect(socket, &QTcpSocket::readyRead, this, &DiskNode::onReadyRead);
     connect(socket, &QTcpSocket::connected, this, &DiskNode::onConnected);
@@ -345,10 +345,7 @@ void DiskNode::sendData(const QByteArray &data) {
 
 void DiskNode::sendMemoryReport(const QString& fileName)
 {
-    // Supongo que el file name es el nombre del archivo que se subio
-    // spaceUsed es espacio usado si se desea usar el libre solo es de cambiar esta logica
-    // spacedUsed deberia ser modificado al Upload o Erase.
-    QString data = QString::number(spaceUsed);
+    QString data = QString::number(memoryUsed);
     ActionMessage action = ActionMessage::Space;
     sendData(messageFormat.createFormat(MessageIndicator::NodeToController, fileName, action,data.toUtf8()));
 }

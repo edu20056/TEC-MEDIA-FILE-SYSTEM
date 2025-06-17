@@ -16,11 +16,12 @@ class DiskNode : public QObject {
 
 public:
     explicit DiskNode(QObject *parent = nullptr,
-        const QString &host = "localhost",
-        quint16 port = 50000,
-        const QString path = "",
-        quint16 = 0
-    );
+                    const QString &host = "localhost",
+                    quint16 port = 50000,
+                    const QString path = "",
+                    quint16 id = 0,
+                    quint64 blk = 1024,
+                    quint64 dis = 1024 * 1024);
 
     void sendData(const QByteArray &data);
     bool isConnected() const;
@@ -52,10 +53,12 @@ private:
     QTcpSocket *socket;
     QString path;
     quint16 nodeID;
+    quint64 blkSize; 
+    quint64 diskSize; 
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
     QStringList fileNamesAdded;
-    int spaceUsed = 1223402; 
+    quint64 memoryUsed;
 };
 
 #endif

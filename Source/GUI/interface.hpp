@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QTableWidget>
 #include <QVBoxLayout>
+#include <QListWidget>
 #include <QHeaderView>
 #include <QLineEdit>
 #include <QFileDialog>
@@ -43,7 +44,8 @@ private slots:
     void onError(QAbstractSocket::SocketError error);
 
     int extractNodeID(const QString &status); 
-    QStringList extractFileNames(const QString &status); 
+    QStringList extractFileNames(const QString &status);
+    void updateUniqueFileList(const QStringList &fileList);
 
 private:
     httpFormat messageFormat;
@@ -54,10 +56,14 @@ private:
     QPushButton *btnUpload;
     QLineEdit *lineEditPDFName;
     QLabel *showInformation;
-    QHash<QTcpSocket*, QByteArray> buffers; // To receive messages
+    QHash<QTcpSocket*, QByteArray> buffers;
 
     QTableWidget *nodeStatusTable;
     void setupNodeStatusTable(); 
+
+    QListWidget *uniqueFileList;
+    QSet<QString> allNodeFiles;
+    QLabel *showSpace;
 };
 
 #endif

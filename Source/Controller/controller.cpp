@@ -1,10 +1,11 @@
 #include "controller.hpp"
 
-NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : QTcpServer(parent)
+NodeController::NodeController(QObject *parent, quint16 port, quint64 block, quint64 space) : QTcpServer(parent)
 {
     blockSize = block;
+    totalMemory = space; 
     qDebug() << "Inicialized as: " << port << ", Blocksize" << blockSize;
-    if (!listen(QHostAddress::Any, port)) {
+    if (!listen(QHostAddress::Any, port)) { 
         qCritical() << "Server could not start:" << errorString();
     } else {
         qInfo() << "Server listening on port" << port;
@@ -237,12 +238,14 @@ void NodeController::onReadyRead() {
                 }
                 else if (messageFormat.getAction() == ActionMessage::Space)
                 {
+
                     QByteArray data = messageFormat.getContent();
-                    spaceUsed += data.toInt();
-                    QString newData = QString::number(spaceUsed);
+                    quint64 memoryUsed = data.toULongLong() * 3;
+                    QString spaceUsage = QString("Memoria Usada: %1 / %2").arg(memoryUsed).arg(totalMemory);
+                    QByteArray resultMessage = spaceUsage.toUtf8();
                     ActionMessage action = ActionMessage::Space;
-                    // Message
-                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
+
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, resultMessage);
                     for (QTcpSocket* nodo : clientTypes.keys()) {
                         if (clientTypes.value(nodo).type == ClientType::Gui) {
                             sendData(nodo, newMessage);
