@@ -277,6 +277,7 @@ void DiskNode::onReadyRead() {
                         data = "No se encontro el siguiente PDF para borrar: " + fileName.toUtf8();
                         sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data)); 
                     }
+                    sendMemoryReport(fileName);
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Download) {
@@ -340,4 +341,14 @@ void DiskNode::sendData(const QByteArray &data) {
     if (!socket->waitForBytesWritten(1000)) {
         qDebug() << "Timeout al enviar datos";
     }
+}
+
+void DiskNode::sendMemoryReport(const QString& fileName)
+{
+    // Supongo que el file name es el nombre del archivo que se subio
+    // spaceUsed es espacio usado si se desea usar el libre solo es de cambiar esta logica
+    // spacedUsed deberia ser modificado al Upload o Erase.
+    QString data = QString::number(spaceUsed);
+    ActionMessage action = ActionMessage::Space;
+    sendData(messageFormat.createFormat(MessageIndicator::NodeToController, fileName, action,data.toUtf8()));
 }

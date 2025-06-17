@@ -59,6 +59,7 @@ private:
     QMap<QString, QByteArray> incomingDataToDownload;
     int currentNodeLoaded = 0;
     int connectedNodes = 0;
+    int spaceUsed = 0;
 };
 
 #endif

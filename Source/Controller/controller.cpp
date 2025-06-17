@@ -235,6 +235,21 @@ void NodeController::onReadyRead() {
 
 
                 }
+                else if (messageFormat.getAction() == ActionMessage::Space)
+                {
+                    QByteArray data = messageFormat.getContent();
+                    spaceUsed += data.toInt();
+                    QString newData = QString::number(spaceUsed);
+                    ActionMessage action = ActionMessage::Space;
+                    // Message
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
+                    for (QTcpSocket* nodo : clientTypes.keys()) {
+                        if (clientTypes.value(nodo).type == ClientType::Gui) {
+                            sendData(nodo, newMessage);
+                        }
+                    } 
+                }
+                
                 
                 else // Check, Delete, AND Upload show generic answer message.
                 {

@@ -46,6 +46,7 @@ private slots:
     bool reconstructPdf(const QByteArray& pdfData, const QString& fileName);
     void deleteFile(QString const &fileName); 
     void searchAndSendPdfBlocks(const QString& path, const QString& fileName );
+    void sendMemoryReport(const QString& fileName);
 
 private:
     QTcpSocket *socket;
@@ -54,6 +55,7 @@ private:
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
     QStringList fileNamesAdded;
+    int spaceUsed = 1223402; 
 };
 
 #endif

@@ -159,6 +159,16 @@ void App::onReadyRead() {
 
                     updateNodeStatus(nodeID, fileList);
                 }
+                else if (messageFormat.getAction() == ActionMessage::Space)
+                {
+                    qDebug() << "HOLAAAAAAAAAAAAAAAAAAAAAAAAA";
+                    // Debe ser puesto en otro label :D
+                    QString str = QString::fromUtf8(messageFormat.getContent());
+                    qDebug() << "Mensaje completo:" << str;
+                    changeInformationMessage(showInformation, str);
+                    qDebug() << "HOLAAAAAAAAAAAAAAAAAAAAAAAAA2222222222222222222";
+                }
+                
             }
 
             else
