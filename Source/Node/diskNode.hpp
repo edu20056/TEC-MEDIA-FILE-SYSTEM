@@ -58,6 +58,7 @@ private:
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
     QStringList fileNamesAdded;
+    quint64 memoryUsed;
 };
 
 #endif

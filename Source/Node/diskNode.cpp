@@ -2,7 +2,7 @@
 
 DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
     const QString path, quint16 id, quint64 blk, quint64 disk) 
-    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id), blkSize(blk), diskSize(disk) {
+    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id), blkSize(blk), diskSize(disk), memoryUsed(0) {
 
     connect(socket, &QTcpSocket::readyRead, this, &DiskNode::onReadyRead);
     connect(socket, &QTcpSocket::connected, this, &DiskNode::onConnected);
@@ -88,6 +88,19 @@ bool DiskNode::initPath() {
 }
 
 bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
+    if (data.size() != static_cast<qint64>(blkSize)) {
+        QByteArray errorMsg = "Tamaño de bloque incorrecto. Esperado: " 
+                            + QByteArray::number(blkSize) 
+                            + ", recibido: " + QByteArray::number(data.size());
+        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Error, errorMsg));
+        return false;
+    }
+
+    if (memoryUsed + data.size() > diskSize) {
+        QByteArray errorMsg = "Memoria insuficiente para guardar el archivo.";
+        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Error, errorMsg));
+        return false;
+    }
 
     QDir dir(path);
     if (!dir.exists()) return false;
@@ -101,6 +114,7 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     file.close();
 
     sendStatus();
+    memoryUsed += bytesWritten;
     return true; 
 }
 
@@ -135,7 +149,14 @@ void DiskNode::deleteFile(QString const &fileName) {
         if (prefix == fileName) {
             QString filePath = dir.absoluteFilePath(baseName);
             QFile file(filePath);
-            file.remove();
+
+            qint64 fileSize = file.size();
+
+            if (file.remove()) {
+                quint64 sizeToRemove = static_cast<quint64>(fileSize);
+                memoryUsed = (memoryUsed >= sizeToRemove) ? 
+                    memoryUsed - sizeToRemove : 0;
+            }
         }
     }
 
@@ -259,13 +280,16 @@ void DiskNode::onReadyRead() {
                     bool success = storeFile(messageFormat.getContent(), fileName);
                     qDebug().noquote() << QString("[Upload] Success       : %1").arg(success);
 
-                    data = "Se sube el pdf: " + fileName.toUtf8();
-                    sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Upload, data));
+                    if(success){
+                        data = "Se sube el pdf: " + fileName.toUtf8();
+                        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Upload, data));
+                    }
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Erase) {
                     if (fileNamesAdded.contains(fileName))
                     {
+                        fileNamesAdded.removeAll(fileName);
                         deleteFile(fileName); 
 
                         data = "Se borra el pdf: " + fileName.toUtf8();
