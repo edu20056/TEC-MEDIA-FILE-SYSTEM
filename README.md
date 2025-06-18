@@ -18,7 +18,7 @@ sudo apt  qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
 ```
 
 ## How to Run
-Begin by cloning the repository and navigating to the project directory. The compilation process uses a _Makefile_, so simply run the `make` in  the _Source_ folder. Then procid to execute `./TECMFS-CTRL` and `./TECMFS-GUI` in their respective order -and in your terminal of choice- to run the application. 
+Begin by cloning the repository and navigating to the project directory in the _Source_ folder. The compilation process uses a bash script to compile and run, to execute the program locally use the command `./exe.sh`. 
 
 If changes are done to the code or want to remove generated files and binaries, you can clean the directory by running `make clean`.
 
