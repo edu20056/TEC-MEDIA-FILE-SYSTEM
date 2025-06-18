@@ -153,16 +153,12 @@ void App::onReadyRead() {
 
                 else if (messageFormat.getAction() == ActionMessage::MemoryStatus) {
                     QByteArray raw = messageFormat.getContent();
-                    QString status = QString::fromUtf8(raw);  // Asegúrate de esto
-
-                    qDebug().noquote() << ">> Status recibido:\n" << status;
+                    QString status = QString::fromUtf8(raw);  
 
                     int nodeID = extractNodeID(status);
-                    qDebug() << ">> ID extraído:" << nodeID;
 
                     QStringList fileList;
                     if (status.toLower().contains("connected: no")) {
-                        qDebug() << "[CONTAINS NO]" ;
                         fileList << "DISCONNECTED";
                     } else {
                         fileList = extractFileNames(status);
@@ -175,10 +171,7 @@ void App::onReadyRead() {
                 else if (messageFormat.getAction() == ActionMessage::Space)
                 {
                     QByteArray raw = messageFormat.getContent();
-                    qDebug() << "[DEBUG] Contenido SPACE crudo:" << raw;
-
                     QString str = QString::fromUtf8(raw);
-                    qDebug() << "[DEBUG] Contenido SPACE como QString:" << str;
 
                     spaceUsageMsg(showSpace, str); 
                 }        
@@ -239,14 +232,13 @@ void App::UploadPDF() {
         return;
     }
 
-
     QFile file(fileName);
     QFileInfo fileIndo(fileName);
     if (!file.open(QIODevice::ReadOnly)) {
         qDebug() << "No se pudo abrir el archivo:" << fileName;
         changeInformationMessage(showInformation, "El archivo seleccionado " + fileName +" no se puede abrir al estar vacio.");
         return;
-    }
+    } 
 
     QByteArray data = file.readAll();
     file.close();

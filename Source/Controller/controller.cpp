@@ -115,19 +115,33 @@ void NodeController::onReadyRead() {
             }
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
                 if (messageFormat.getAction() == ActionMessage::Upload) {
-                    if (connectedNodes == 4){
-                        currentRaidRow = 0;
-                        uploadBlksIntoNodes(messageFormat.getContent(), messageFormat.getFileName(), blockSize);
-                    }
-                    else
-                    {
-                        QString data = "No hay suficientes nodos para subir pdfs.";
-                        ActionMessage action = ActionMessage::Error;
-                        QByteArray message = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data.toUtf8());
+
+                    if (totalMemory - spaceUsed >= static_cast<quint64>(messageFormat.getContent().size())) {
+                        if (connectedNodes == 4){
+                            currentRaidRow = 0;
+                            uploadBlksIntoNodes(messageFormat.getContent(), messageFormat.getFileName(), blockSize);
+                        }
+                        else
+                        {
+                            QString data = "No hay suficientes nodos para subir pdfs.";
+                            ActionMessage action = ActionMessage::Error;
+                            QByteArray message = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data.toUtf8());
+                            for (QTcpSocket* nodo : clientTypes.keys()) {
+                                if (clientTypes.value(nodo).type == ClientType::Gui) {
+                                    sendData(nodo, message);
+                                }
+                            } 
+                        }
+                    } else {
+
+                        QByteArray resultMessage = "Memoria Insuficiente... :(";
+                        ActionMessage action = ActionMessage::Space;
+                        QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, 
+                                                                        messageFormat.getFileName(), action, resultMessage);
                         for (QTcpSocket* nodo : clientTypes.keys()) {
                             if (clientTypes.value(nodo).type == ClientType::Gui) {
-                                sendData(nodo, message);
-                               }
+                                sendData(nodo, newMessage);
+                            }
                         } 
                     }
                 }
@@ -254,13 +268,20 @@ void NodeController::onReadyRead() {
                 }
                 else if (messageFormat.getAction() == ActionMessage::Space)
                 {
-                    qDebug() << "[SPACE IN CTRL]";
                     QByteArray data = messageFormat.getContent();
-                    quint64 memoryUsed = data.toULongLong() * 3;
-                    spaceUsed = memoryUsed;
-                    QString spaceUsage = QString("Memoria Usada: %1 / %2").arg(spaceUsed).arg(totalMemory);
-                    QByteArray resultMessage = spaceUsage.toUtf8();
+                    QString dataStr = QString::fromUtf8(data);
+
+                    QByteArray resultMessage;
                     ActionMessage action = ActionMessage::Space;
+
+                    if (dataStr.startsWith("Memoria Insuficiente")) {
+                        resultMessage = data;
+                    } else {
+                        quint64 memoryUsed = dataStr.toULongLong() * 3;
+                        spaceUsed = memoryUsed;
+                        QString spaceUsage = QString("Memoria Usada: %1 / %2").arg(spaceUsed).arg(totalMemory);
+                        resultMessage = spaceUsage.toUtf8();
+                    }
 
                     QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, 
                                                                     messageFormat.getFileName(), action, resultMessage);

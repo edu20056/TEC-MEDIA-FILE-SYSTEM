@@ -92,6 +92,13 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     QDir dir(path);
     if (!dir.exists()) return false;
 
+    qint64 incomingSize = data.size();
+
+    if (static_cast<quint64>(memoryUsed + incomingSize) > diskSize) {
+        sendMemoryReport(fileName, true);
+        return false;
+    }
+
     QString filePath = dir.absoluteFilePath(fileName);
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) return false;
@@ -99,6 +106,8 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     qint64 bytesWritten = file.write(data);
     if (bytesWritten == -1) return false;
     file.close();
+
+    memoryUsed += bytesWritten;
 
     sendStatus();
     sendMemoryReport(fileName); 
@@ -125,23 +134,29 @@ bool DiskNode::reconstructPdf(const QByteArray& pdfData, const QString& fileName
 }
 
 void DiskNode::deleteFile(QString const &fileName) {
+        QDir dir(path);
 
-    QDir dir(path);
+        QStringList files = dir.entryList(QDir::Files | QDir::NoDotAndDotDot);
+        qint64 totalFreed = 0;
 
-    QStringList files = dir.entryList(QDir::Files | QDir::NoDotAndDotDot);
-
-    for (const QString &baseName : files) {
-        QString prefix = baseName.section('_', 0, 0);
-
-        if (prefix == fileName) {
-            QString filePath = dir.absoluteFilePath(baseName);
-            QFile file(filePath);
-            file.remove();
+        for (const QString &baseName : files) {
+            QString prefix = baseName.section('_', 0, 0);
+            if (prefix == fileName) {
+                QString filePath = dir.absoluteFilePath(baseName);
+                QFile file(filePath);
+                if (file.exists()) {
+                    totalFreed += file.size();
+                    file.remove();
+                }
+            }
         }
-    }
 
-    sendStatus();
-    sendMemoryReport(fileName); 
+        if (totalFreed > 0) {
+            memoryUsed = qMax<qint64>(0, memoryUsed - totalFreed);
+
+        sendStatus();
+        sendMemoryReport(fileName);
+    }
 }
 
 // ================================= AUXILIARY =====================================  
@@ -344,8 +359,11 @@ void DiskNode::sendData(const QByteArray &data) {
     }
 }
 
-void DiskNode::sendMemoryReport(const QString& fileName) {
-    QString data = QString::number(memoryUsed);
+void DiskNode::sendMemoryReport(const QString& fileName, bool error) {
+    
+    QString data;
+    if (!error) { data = QString::number(memoryUsed); }
+    else { data = QString("Memoria Insuficiente... :("); }
     ActionMessage action = ActionMessage::Space;
-    sendData(messageFormat.createFormat(MessageIndicator::NodeToController, fileName, action,data.toUtf8()));
+    sendData(messageFormat.createFormat(MessageIndicator::NodeToController, fileName, action, data.toUtf8()));
 }
