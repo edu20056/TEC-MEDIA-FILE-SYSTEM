@@ -14,9 +14,11 @@ int main(int argc, char *argv[]){
     QString portStr = configRead(xmlPath, xmlTag::ControllerPort);
     quint16 port = portStr.toUShort();
     QString blockSize = configRead(xmlPath,xmlTag::BlockSize);
-    quint64 size = 1054 * blockSize.toUShort();  
+    quint64 size = 1024 * blockSize.toUShort();
+    QString totalSize = configRead(xmlPath,xmlTag::TotalSpace);
+    quint64 space = 1024 * 1024 * totalSize.toUShort();  
 
-    NodeController server(nullptr, port, size);
+    NodeController server(nullptr, port, size, space);
 
     return app.exec();
 }

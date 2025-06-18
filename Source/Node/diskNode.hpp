@@ -16,11 +16,12 @@ class DiskNode : public QObject {
 
 public:
     explicit DiskNode(QObject *parent = nullptr,
-        const QString &host = "localhost",
-        quint16 port = 50000,
-        const QString path = "",
-        quint16 = 0
-    );
+                    const QString &host = "localhost",
+                    quint16 port = 50000,
+                    const QString path = "",
+                    quint16 id = 0,
+                    quint64 blk = 1024,
+                    quint64 dis = 1024 * 1024);
 
     void sendData(const QByteArray &data);
     bool isConnected() const;
@@ -46,14 +47,18 @@ private slots:
     bool reconstructPdf(const QByteArray& pdfData, const QString& fileName);
     void deleteFile(QString const &fileName); 
     void searchAndSendPdfBlocks(const QString& path, const QString& fileName );
+    void sendMemoryReport(const QString& fileName, bool error = false);
 
 private:
     QTcpSocket *socket;
     QString path;
     quint16 nodeID;
+    quint64 blkSize; 
+    quint64 diskSize; 
     httpFormat messageFormat;
     QHash<QTcpSocket*, QByteArray> buffers;
     QStringList fileNamesAdded;
+    quint64 memoryUsed = 0;
 };
 
 #endif

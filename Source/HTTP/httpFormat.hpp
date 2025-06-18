@@ -11,6 +11,7 @@ enum class ActionMessage {
     Upload,
     Error,
     MemoryStatus,
+    Space,
     Null
 
 };

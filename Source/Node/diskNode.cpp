@@ -1,8 +1,8 @@
 #include "diskNode.hpp"
 
 DiskNode::DiskNode(QObject *parent, const QString &host, quint16 port,
-    const QString path, quint16 id) 
-    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id) {
+    const QString path, quint16 id, quint64 blk, quint64 disk) 
+    : QObject(parent), socket(new QTcpSocket(this)), path(path), nodeID(id), blkSize(blk), diskSize(disk), memoryUsed(0) {
 
     connect(socket, &QTcpSocket::readyRead, this, &DiskNode::onReadyRead);
     connect(socket, &QTcpSocket::connected, this, &DiskNode::onConnected);
@@ -92,6 +92,13 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     QDir dir(path);
     if (!dir.exists()) return false;
 
+    qint64 incomingSize = data.size();
+
+    if (static_cast<quint64>(memoryUsed + incomingSize) > diskSize) {
+        sendMemoryReport(fileName, true);
+        return false;
+    }
+
     QString filePath = dir.absoluteFilePath(fileName);
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) return false;
@@ -100,7 +107,10 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     if (bytesWritten == -1) return false;
     file.close();
 
+    memoryUsed += bytesWritten;
+
     sendStatus();
+    sendMemoryReport(fileName); 
     return true; 
 }
 
@@ -124,22 +134,29 @@ bool DiskNode::reconstructPdf(const QByteArray& pdfData, const QString& fileName
 }
 
 void DiskNode::deleteFile(QString const &fileName) {
+        QDir dir(path);
 
-    QDir dir(path);
+        QStringList files = dir.entryList(QDir::Files | QDir::NoDotAndDotDot);
+        qint64 totalFreed = 0;
 
-    QStringList files = dir.entryList(QDir::Files | QDir::NoDotAndDotDot);
-
-    for (const QString &baseName : files) {
-        QString prefix = baseName.section('_', 0, 0);
-
-        if (prefix == fileName) {
-            QString filePath = dir.absoluteFilePath(baseName);
-            QFile file(filePath);
-            file.remove();
+        for (const QString &baseName : files) {
+            QString prefix = baseName.section('_', 0, 0);
+            if (prefix == fileName) {
+                QString filePath = dir.absoluteFilePath(baseName);
+                QFile file(filePath);
+                if (file.exists()) {
+                    totalFreed += file.size();
+                    file.remove();
+                }
+            }
         }
-    }
 
-    sendStatus();
+        if (totalFreed > 0) {
+            memoryUsed = qMax<qint64>(0, memoryUsed - totalFreed);
+
+        sendStatus();
+        sendMemoryReport(fileName);
+    }
 }
 
 // ================================= AUXILIARY =====================================  
@@ -248,12 +265,21 @@ void DiskNode::onReadyRead() {
                 const QString &fileName = messageFormat.getFileName();
 
                 if (messageFormat.getAction() == ActionMessage::Upload) {
-
-                    if (!fileNamesAdded.contains(messageFormat.getFileName()))
+                    QDir dir(path);
+                    QString nombre = fileName.split("_").at(0); 
+                    QStringList archivos = dir.entryList(QDir::Files);
+                    if (!fileNamesAdded.contains(nombre))
                     {
-                        fileNamesAdded.append(messageFormat.getFileName());
+                        fileNamesAdded.append(nombre);
 
                     }
+                    if (fileNamesAdded.contains(nombre)  && archivos.contains(messageFormat.getFileName()))
+                    {
+                        QString message = "El pdf " + nombre + " ya ha sido subido.";
+                        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Error, message.toUtf8()));
+                        break; // wait for more messages
+                    }
+                    
 
                     bool success = storeFile(messageFormat.getContent(), fileName);
                     qDebug().noquote() << QString("[Upload] Success       : %1").arg(success);
@@ -264,15 +290,33 @@ void DiskNode::onReadyRead() {
 
                 else if (messageFormat.getAction() == ActionMessage::Erase) {
 
-                    deleteFile(fileName); 
-
-                    data = "Se borra el pdf: " + fileName.toUtf8();
-                    sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data));
+                    if (fileNamesAdded.contains(fileName))
+                    {
+                        deleteFile(fileName); 
+                        fileNamesAdded.removeAll(fileName);
+                        data = "Se borra el pdf: " + fileName.toUtf8();
+                        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data));
+                    }
+                    else
+                    {
+                        data = "No se encontro el siguiente PDF para borrar: " + fileName.toUtf8();
+                        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data)); 
+                    }
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Download) {
-                    qDebug() << "El nodo empieza a mandar info para descarga de pdf";
-                    searchAndSendPdfBlocks(path,messageFormat.getFileName());
+
+                    if (fileNamesAdded.contains(fileName))
+                    {
+                        qDebug() << "El nodo empieza a mandar info para descarga de pdf";
+                        searchAndSendPdfBlocks(path,messageFormat.getFileName());
+                    }
+                    else
+                    {
+                        QString message = "El pdf " + fileName + " no ha sido subido para poder descargarlo.";
+                        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Error, message.toUtf8()));
+                
+                    }
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Check) {
@@ -321,4 +365,13 @@ void DiskNode::sendData(const QByteArray &data) {
     if (!socket->waitForBytesWritten(1000)) {
         qDebug() << "Timeout al enviar datos";
     }
+}
+
+void DiskNode::sendMemoryReport(const QString& fileName, bool error) {
+    
+    QString data;
+    if (!error) { data = QString::number(memoryUsed); }
+    else { data = QString("Memoria Insuficiente... :("); }
+    ActionMessage action = ActionMessage::Space;
+    sendData(messageFormat.createFormat(MessageIndicator::NodeToController, fileName, action, data.toUtf8()));
 }

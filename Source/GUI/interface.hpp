@@ -6,12 +6,14 @@
 #include <QPushButton>
 #include <QTableWidget>
 #include <QVBoxLayout>
+#include <QListWidget>
 #include <QHeaderView>
 #include <QLineEdit>
 #include <QFileDialog>
 #include <QApplication>
 #include <QScreen>
 #include <QDebug>
+#include <QLabel>
 #include <QFile>
 #include <QDir>
 #include "../HTTP/httpFormat.hpp"
@@ -25,7 +27,9 @@ public:
     void sendData(const QByteArray &data);
     bool isConnected() const;
     void updateNodeStatus(int nodeID, const QStringList &fileList);
-
+    void changeInformationMessage(QLabel* textBox, const QString& nuevoTexto);
+    void spaceUsageMsg(QLabel* textBox, const QString& nuevoTexto);
+    
 signals:
     void connectionStatusChanged(bool connected);
 
@@ -41,7 +45,8 @@ private slots:
     void onError(QAbstractSocket::SocketError error);
 
     int extractNodeID(const QString &status); 
-    QStringList extractFileNames(const QString &status); 
+    QStringList extractFileNames(const QString &status);
+    void updateUniqueFileList(const QStringList &fileList);
 
 private:
     httpFormat messageFormat;
@@ -51,10 +56,15 @@ private:
     QPushButton *btnDownload;
     QPushButton *btnUpload;
     QLineEdit *lineEditPDFName;
-    QHash<QTcpSocket*, QByteArray> buffers; // To receive messages
+    QLabel *showInformation;
+    QHash<QTcpSocket*, QByteArray> buffers;
 
     QTableWidget *nodeStatusTable;
     void setupNodeStatusTable(); 
+
+    QListWidget *uniqueFileList;
+    QSet<QString> allNodeFiles;
+    QLabel *showSpace;
 };
 
 #endif

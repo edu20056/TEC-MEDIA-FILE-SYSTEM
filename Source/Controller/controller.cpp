@@ -1,10 +1,11 @@
 #include "controller.hpp"
 
-NodeController::NodeController(QObject *parent, quint16 port, quint64 block) : QTcpServer(parent)
+NodeController::NodeController(QObject *parent, quint16 port, quint64 block, quint64 space) : QTcpServer(parent)
 {
     blockSize = block;
+    totalMemory = space; 
     qDebug() << "Inicialized as: " << port << ", Blocksize" << blockSize;
-    if (!listen(QHostAddress::Any, port)) {
+    if (!listen(QHostAddress::Any, port)) { 
         qCritical() << "Server could not start:" << errorString();
     } else {
         qInfo() << "Server listening on port" << port;
@@ -47,10 +48,26 @@ void NodeController::onReadyRead() {
         else
         {
             clientTypes[client].type = ClientType::Gui;
+
+            QString spaceUsage = QString("Memoria Usada: 0 / %1").arg(totalMemory);
+            QByteArray resultMessage = spaceUsage.toUtf8();
+            ActionMessage action = ActionMessage::Space;
+
+            QByteArray newMessage = messageFormat.createFormat(
+                MessageIndicator::ControllerToServer,
+                "N/A",
+                action, resultMessage);
+
+            for (QTcpSocket* nodo : clientTypes.keys()) {
+                if (clientTypes.value(nodo).type == ClientType::Gui) {
+                    sendData(nodo, newMessage);
+                }
+            } 
         }
         clientTypes[client].id = clientNum;
         clientNum++;
     }
+    
     // Procesar mensajes completos
     while (buffers[client].size() >= 4) { // We asume that the first 4 bytes are for message size
         // Read message size (first 4 bytes)
@@ -98,8 +115,35 @@ void NodeController::onReadyRead() {
             }
             if (messageFormat.getIndicator() == MessageIndicator::ServerToController) { // Incoming message from GUI
                 if (messageFormat.getAction() == ActionMessage::Upload) {
-                    currentRaidRow = 0;
-                    uploadBlksIntoNodes(messageFormat.getContent(), messageFormat.getFileName(), blockSize);
+
+                    if (totalMemory - spaceUsed >= static_cast<quint64>(messageFormat.getContent().size())) {
+                        if (connectedNodes == 4){
+                            currentRaidRow = 0;
+                            uploadBlksIntoNodes(messageFormat.getContent(), messageFormat.getFileName(), blockSize);
+                        }
+                        else
+                        {
+                            QString data = "No hay suficientes nodos para subir pdfs.";
+                            ActionMessage action = ActionMessage::Error;
+                            QByteArray message = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data.toUtf8());
+                            for (QTcpSocket* nodo : clientTypes.keys()) {
+                                if (clientTypes.value(nodo).type == ClientType::Gui) {
+                                    sendData(nodo, message);
+                                }
+                            } 
+                        }
+                    } else {
+
+                        QByteArray resultMessage = "Memoria Insuficiente... :(";
+                        ActionMessage action = ActionMessage::Space;
+                        QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, 
+                                                                        messageFormat.getFileName(), action, resultMessage);
+                        for (QTcpSocket* nodo : clientTypes.keys()) {
+                            if (clientTypes.value(nodo).type == ClientType::Gui) {
+                                sendData(nodo, newMessage);
+                            }
+                        } 
+                    }
                 }
                 else if (messageFormat.getAction() == ActionMessage::Erase)
                 {
@@ -163,6 +207,14 @@ void NodeController::onReadyRead() {
                                 reconstructPDF(messageFormat.getFileName());
                                 currentNodeLoaded = 0;
                                 incomingDataToDownload.clear();
+                                QString data = "Con la cantidad de 4 nodos se descargó: " + messageFormat.getFileName();
+                                ActionMessage action = ActionMessage::Download;
+                                QByteArray message = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data.toUtf8());
+                                for (QTcpSocket* nodo : clientTypes.keys()) {
+                                    if (clientTypes.value(nodo).type == ClientType::Gui) {
+                                        sendData(nodo, message);
+                                       }
+                                } 
                             }
                         }
                         else
@@ -182,6 +234,14 @@ void NodeController::onReadyRead() {
                                 reconstructPDFParity(messageFormat.getFileName());
                                 currentNodeLoaded = 0;
                                 incomingDataToDownload.clear();
+                                QString data = "Con la cantidad de 3 nodos se descargó: " + messageFormat.getFileName();
+                                ActionMessage action = ActionMessage::Download;
+                                QByteArray message = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data.toUtf8());
+                                for (QTcpSocket* nodo : clientTypes.keys()) {
+                                    if (clientTypes.value(nodo).type == ClientType::Gui) {
+                                        sendData(nodo, message);
+                                       }
+                                } 
                             }
                         }
                         else
@@ -192,7 +252,7 @@ void NodeController::onReadyRead() {
                     else // More than 1 node are desconected, not able to work propertly
                     {
                         ActionMessage action = messageFormat.getAction();
-                        QByteArray data = "Not enough nodes are connected!";
+                        QByteArray data = "No hay suficientes nodos conectados!";
                         QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, data);
                         for (QTcpSocket* nodo : clientTypes.keys()) {
                             if (clientTypes.value(nodo).type == ClientType::Gui) {
@@ -205,6 +265,31 @@ void NodeController::onReadyRead() {
                     
 
 
+                }
+                else if (messageFormat.getAction() == ActionMessage::Space)
+                {
+                    QByteArray data = messageFormat.getContent();
+                    QString dataStr = QString::fromUtf8(data);
+
+                    QByteArray resultMessage;
+                    ActionMessage action = ActionMessage::Space;
+
+                    if (dataStr.startsWith("Memoria Insuficiente")) {
+                        resultMessage = data;
+                    } else {
+                        quint64 memoryUsed = dataStr.toULongLong() * 3;
+                        spaceUsed = memoryUsed;
+                        QString spaceUsage = QString("Memoria Usada: %1 / %2").arg(spaceUsed).arg(totalMemory);
+                        resultMessage = spaceUsage.toUtf8();
+                    }
+
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, 
+                                                                    messageFormat.getFileName(), action, resultMessage);
+                    for (QTcpSocket* nodo : clientTypes.keys()) {
+                        if (clientTypes.value(nodo).type == ClientType::Gui) {
+                            sendData(nodo, newMessage);
+                        }
+                    } 
                 }
                 
                 else // Check, Delete, AND Upload show generic answer message.
