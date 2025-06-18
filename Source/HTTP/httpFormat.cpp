@@ -15,6 +15,7 @@ QString httpFormat::actionMessageToString(ActionMessage action) {
         case ActionMessage::Upload:       return "Upload";
         case ActionMessage::Error:        return "Error";
         case ActionMessage::MemoryStatus: return "MemoryStatus";
+        case ActionMessage::Space:        return "Space";
         default:                          return "Unknown";
     }
 }
@@ -26,6 +27,7 @@ ActionMessage httpFormat::stringToActionMessage(const QString& str) {
     if (str == "Upload")       return ActionMessage::Upload;
     if (str == "Error")        return ActionMessage::Error;
     if (str == "MemoryStatus") return ActionMessage::MemoryStatus;
+    if (str == "Space")        return ActionMessage::Space;
     return ActionMessage::Error; // valor por defecto seguro
 }
 
