@@ -48,10 +48,26 @@ void NodeController::onReadyRead() {
         else
         {
             clientTypes[client].type = ClientType::Gui;
+
+            QString spaceUsage = QString("Memoria Usada: 0 / %1").arg(totalMemory);
+            QByteArray resultMessage = spaceUsage.toUtf8();
+            ActionMessage action = ActionMessage::Space;
+
+            QByteArray newMessage = messageFormat.createFormat(
+                MessageIndicator::ControllerToServer,
+                "N/A",
+                action, resultMessage);
+
+            for (QTcpSocket* nodo : clientTypes.keys()) {
+                if (clientTypes.value(nodo).type == ClientType::Gui) {
+                    sendData(nodo, newMessage);
+                }
+            } 
         }
         clientTypes[client].id = clientNum;
         clientNum++;
     }
+    
     // Procesar mensajes completos
     while (buffers[client].size() >= 4) { // We asume that the first 4 bytes are for message size
         // Read message size (first 4 bytes)
@@ -238,21 +254,22 @@ void NodeController::onReadyRead() {
                 }
                 else if (messageFormat.getAction() == ActionMessage::Space)
                 {
-
+                    qDebug() << "[SPACE IN CTRL]";
                     QByteArray data = messageFormat.getContent();
                     quint64 memoryUsed = data.toULongLong() * 3;
-                    QString spaceUsage = QString("Memoria Usada: %1 / %2").arg(memoryUsed).arg(totalMemory);
+                    spaceUsed = memoryUsed;
+                    QString spaceUsage = QString("Memoria Usada: %1 / %2").arg(spaceUsed).arg(totalMemory);
                     QByteArray resultMessage = spaceUsage.toUtf8();
                     ActionMessage action = ActionMessage::Space;
 
-                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, messageFormat.getFileName(), action, resultMessage);
+                    QByteArray newMessage = messageFormat.createFormat(MessageIndicator::ControllerToServer, 
+                                                                    messageFormat.getFileName(), action, resultMessage);
                     for (QTcpSocket* nodo : clientTypes.keys()) {
                         if (clientTypes.value(nodo).type == ClientType::Gui) {
                             sendData(nodo, newMessage);
                         }
                     } 
                 }
-                
                 
                 else // Check, Delete, AND Upload show generic answer message.
                 {

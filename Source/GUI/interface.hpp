@@ -28,6 +28,7 @@ public:
     bool isConnected() const;
     void updateNodeStatus(int nodeID, const QStringList &fileList);
     void changeInformationMessage(QLabel* textBox, const QString& nuevoTexto);
+    void spaceUsageMsg(QLabel* textBox, const QString& nuevoTexto);
     
 signals:
     void connectionStatusChanged(bool connected);

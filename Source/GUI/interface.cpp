@@ -23,7 +23,6 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     lineEditPDFName->setPlaceholderText("Nombre PDF");
     showInformation = new QLabel("Esperando acción del usuario...");
     showSpace = new QLabel("Memoria Usada: ---");
-    showSpace->move(100, 205);
 
     uniqueFileList = new QListWidget();
     uniqueFileList->setSelectionMode(QAbstractItemView::NoSelection);
@@ -39,6 +38,7 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     buttonLayout->addWidget(btnErase);
     buttonLayout->addWidget(lineEditPDFName);
     buttonLayout->addWidget(showInformation);
+    buttonLayout->addWidget(showSpace);
     buttonLayout->addStretch(); // Espacio flexible abajo
 
     // Crear tabla y añadir al layout de tabla
@@ -65,6 +65,10 @@ App::App(QWidget *parent, const QString &host, quint16 port) : QWidget(parent), 
     connect(btnCheck, &QPushButton::clicked, this, &App::CheckExistent); // Download
 }
 void App::changeInformationMessage(QLabel* textBox, const QString& nuevoTexto) {
+    textBox->setText(nuevoTexto);
+}
+
+void App::spaceUsageMsg(QLabel* textBox, const QString& nuevoTexto) {
     textBox->setText(nuevoTexto);
 }
 
@@ -170,14 +174,14 @@ void App::onReadyRead() {
                 }
                 else if (messageFormat.getAction() == ActionMessage::Space)
                 {
-                    qDebug() << "HOLAAAAAAAAAAAAAAAAAAAAAAAAA";
-                    // Debe ser puesto en otro label :D
-                    QString str = QString::fromUtf8(messageFormat.getContent());
-                    qDebug() << "Mensaje completo:" << str;
-                    changeInformationMessage(showInformation, str);
-                    qDebug() << "HOLAAAAAAAAAAAAAAAAAAAAAAAAA2222222222222222222";
-                }
-                
+                    QByteArray raw = messageFormat.getContent();
+                    qDebug() << "[DEBUG] Contenido SPACE crudo:" << raw;
+
+                    QString str = QString::fromUtf8(raw);
+                    qDebug() << "[DEBUG] Contenido SPACE como QString:" << str;
+
+                    spaceUsageMsg(showSpace, str); 
+                }        
             }
 
             else

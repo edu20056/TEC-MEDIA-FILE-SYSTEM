@@ -101,6 +101,7 @@ bool DiskNode::storeFile(const QByteArray& data, QString fileName) {
     file.close();
 
     sendStatus();
+    sendMemoryReport(fileName); 
     return true; 
 }
 
@@ -140,6 +141,7 @@ void DiskNode::deleteFile(QString const &fileName) {
     }
 
     sendStatus();
+    sendMemoryReport(fileName); 
 }
 
 // ================================= AUXILIARY =====================================  
@@ -277,7 +279,6 @@ void DiskNode::onReadyRead() {
                         data = "No se encontro el siguiente PDF para borrar: " + fileName.toUtf8();
                         sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Erase, data)); 
                     }
-                    sendMemoryReport(fileName);
                 }
 
                 else if (messageFormat.getAction() == ActionMessage::Download) {
@@ -343,8 +344,7 @@ void DiskNode::sendData(const QByteArray &data) {
     }
 }
 
-void DiskNode::sendMemoryReport(const QString& fileName)
-{
+void DiskNode::sendMemoryReport(const QString& fileName) {
     QString data = QString::number(memoryUsed);
     ActionMessage action = ActionMessage::Space;
     sendData(messageFormat.createFormat(MessageIndicator::NodeToController, fileName, action,data.toUtf8()));
