@@ -310,7 +310,6 @@ void App::updateNodeStatus(int nodeID, const QStringList &fileList) {
     int column = nodeID - 1;
 
     if (fileList.size() == 1 && fileList[0] == "DISCONNECTED") {
-
         for (int i = 0; i < nodeStatusTable->rowCount(); ++i)
             nodeStatusTable->setItem(i, column, nullptr);
 
@@ -333,7 +332,17 @@ void App::updateNodeStatus(int nodeID, const QStringList &fileList) {
         item->setToolTip(fileList[i]);
         nodeStatusTable->setItem(i, column, item);
     }
-
+    for (int row = nodeStatusTable->rowCount() - 1; row >= 0; --row) {
+        bool isEmpty = true;
+        for (int col = 0; col < nodeStatusTable->columnCount(); ++col) {
+            if (nodeStatusTable->item(row, col)) {
+                isEmpty = false;
+                break;
+            }
+        }
+        if (isEmpty)
+            nodeStatusTable->removeRow(row);
+    }
     updateUniqueFileList(fileList);
 }
 
