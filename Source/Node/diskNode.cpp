@@ -265,13 +265,21 @@ void DiskNode::onReadyRead() {
                 const QString &fileName = messageFormat.getFileName();
 
                 if (messageFormat.getAction() == ActionMessage::Upload) {
-                    
+                    QDir dir(path);
                     QString nombre = fileName.split("_").at(0); 
+                    QStringList archivos = dir.entryList(QDir::Files);
                     if (!fileNamesAdded.contains(nombre))
                     {
                         fileNamesAdded.append(nombre);
 
                     }
+                    if (fileNamesAdded.contains(nombre)  && archivos.contains(messageFormat.getFileName()))
+                    {
+                        QString message = "El pdf " + nombre + " ya ha sido subido.";
+                        sendData(buildMessage(MessageIndicator::NodeToController, fileName, ActionMessage::Error, message.toUtf8()));
+                        break; // wait for more messages
+                    }
+                    
 
                     bool success = storeFile(messageFormat.getContent(), fileName);
                     qDebug().noquote() << QString("[Upload] Success       : %1").arg(success);
